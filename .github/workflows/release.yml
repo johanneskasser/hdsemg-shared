@@ -32,11 +32,11 @@ jobs:
           pip install build twine
 
       - name: Build package
-        working-directory: ./src/shared_logic
+        working-directory: ./src/hdsemg_shared
         run: python -m build
 
       - name: Publish package to PyPI
-        working-directory: ./src/shared_logic
+        working-directory: ./src/hdsemg_shared
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
