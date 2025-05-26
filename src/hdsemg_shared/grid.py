@@ -36,7 +36,9 @@ def load_grid_data(url):
     Returns:
         list: A list of grid data from the file.
     """
-    cache_file = "grid_data_cache.json"
+    cache_dir = os.path.join(os.path.expanduser("~"), ".hdsemg_cache")
+    os.makedirs(cache_dir, exist_ok=True)  # Ensure the cache directory exists
+    cache_file = os.path.join(cache_dir, "grid_data_cache.json")
     one_week_seconds = 7 * 24 * 60 * 60
 
     # Check if the cache file exists and is not older than 1 week
@@ -59,6 +61,7 @@ def load_grid_data(url):
         try:
             with open(cache_file, 'w') as f:
                 json.dump(grid_data, f)
+                logger.info(f"Grid data cached to {cache_file}")
         except IOError as e:
             logger.error(f"Failed to write cache file {cache_file}: {e}")
 
