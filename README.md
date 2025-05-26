@@ -1,8 +1,8 @@
 # hdsemg-shared
 
-Reusable Python components and utilities for working with high-density surface EMG (HD-sEMG) data.
+Reusable Python components and utilities for high-density surface EMG (HD-sEMG) signal processing and input/output (I/O).
 
-This module contains shared logic used across multiple related projects, such as `hdsemg-pipe` and `hdsemg-select`. It is installable as a standalone Python package.
+This module provides shared logic for HD-sEMG signal processing and file handling, used across multiple related projects, such as `hdsemg-pipe` and `hdsemg-select`. It is installable as a standalone Python package and is designed to simplify working with HD-sEMG data.
 
 ---
 
