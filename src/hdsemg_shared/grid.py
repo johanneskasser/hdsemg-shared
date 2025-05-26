@@ -1,4 +1,7 @@
 import logging
+import os
+import json
+import time
 
 import numpy as np
 
@@ -25,7 +28,7 @@ def grid_json_setup():
 
 def load_grid_data(url):
     """
-    Load grid data from a JSON file on the internet.
+    Load grid data from a JSON file on the internet or from a local cache.
 
     Args:
         url (str): URL to the JSON file containing grid data.
@@ -33,10 +36,33 @@ def load_grid_data(url):
     Returns:
         list: A list of grid data from the file.
     """
+    cache_file = "grid_data_cache.json"
+    one_week_seconds = 7 * 24 * 60 * 60
+
+    # Check if the cache file exists and is not older than 1 week
+    if os.path.exists(cache_file):
+        try:
+            file_age = time.time() - os.path.getmtime(cache_file)
+            if file_age < one_week_seconds:
+                with open(cache_file, 'r') as f:
+                    return json.load(f)  # Load grid data from the cache file
+        except (IOError, json.JSONDecodeError) as e:
+            logger.error(f"Failed to read cache file {cache_file}: {e}")
+
+    # If cache file doesn't exist, is invalid, or is older than 1 week, fetch from URL
     try:
         response = requests.get(url, timeout=10)  # Set timeout to 10s
         response.raise_for_status()  # Raise an error for bad responses (4xx, 5xx)
-        return response.json()  # Convert response to JSON
+        grid_data = response.json()  # Convert response to JSON
+
+        # Save the fetched data to the cache file
+        try:
+            with open(cache_file, 'w') as f:
+                json.dump(grid_data, f)
+        except IOError as e:
+            logger.error(f"Failed to write cache file {cache_file}: {e}")
+
+        return grid_data
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to load grid data from {url}: {e}")
         return []
