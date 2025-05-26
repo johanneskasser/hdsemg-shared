@@ -61,6 +61,7 @@ def load_grid_data(url):
         try:
             with open(cache_file, 'w') as f:
                 json.dump(grid_data, f)
+                logger.info(f"Grid data cached to {cache_file}")
         except IOError as e:
             logger.error(f"Failed to write cache file {cache_file}: {e}")
 
