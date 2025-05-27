@@ -21,8 +21,8 @@ def load_file(filepath):
 
     Returns:
         tuple: A tuple containing:
-            - data: The loaded data.
-            - time: The time information associated with the data.
+            - data: The loaded data. (nSamples x nChannels)
+            - time: The time information associated with the data. (nSamples,)
             - description: A description of the data.
             - sampling_frequency: The sampling frequency of the data.
             - file_name: The name of the file.
@@ -45,4 +45,34 @@ def load_file(filepath):
     if data.dtype == 'int16':
         data = data.astype(np.float32)
 
+    data, time = _sanitize_data(data, time)
+
     return data, time, description, sampling_frequency, file_name, file_size
+
+
+def _sanitize_data(data, time):
+    """
+        Ensures that the data and time arrays have the correct shape.
+
+        - Data is converted to at least 2D and transposed if necessary so that the number of rows is greater than or equal to the number of columns.
+        - Time is squeezed to 1D and reshaped if necessary to match the data.
+        - Raises a ValueError if the shapes are not compatible.
+
+        Args:
+            data (np.ndarray): The data array.
+            time (np.ndarray): The time array.
+
+        Returns:
+            tuple: (data, time) in compatible shapes.
+        """
+    data = np.atleast_2d(data)
+    if data.shape[0] < data.shape[1]:
+        data = data.T
+
+    time = np.squeeze(time)
+    if time.ndim == 2:
+        time = time[:, 0] if time.shape[1] == 1 else time[0, :]
+    if time.ndim != 1 or time.shape[0] != data.shape[0]:
+        raise ValueError(f"Incompatible form time {time.shape} for data {data.shape}. Please check the input data.")
+
+    return data, time
