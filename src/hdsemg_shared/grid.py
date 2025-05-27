@@ -1,4 +1,7 @@
 import logging
+import os
+import json
+import time
 
 import numpy as np
 
@@ -25,7 +28,7 @@ def grid_json_setup():
 
 def load_grid_data(url):
     """
-    Load grid data from a JSON file on the internet.
+    Load grid data from a JSON file on the internet or from a local cache.
 
     Args:
         url (str): URL to the JSON file containing grid data.
@@ -33,10 +36,36 @@ def load_grid_data(url):
     Returns:
         list: A list of grid data from the file.
     """
+    cache_dir = os.path.join(os.path.expanduser("~"), ".hdsemg_cache")
+    os.makedirs(cache_dir, exist_ok=True)  # Ensure the cache directory exists
+    cache_file = os.path.join(cache_dir, "grid_data_cache.json")
+    one_week_seconds = 7 * 24 * 60 * 60
+
+    # Check if the cache file exists and is not older than 1 week
+    if os.path.exists(cache_file):
+        try:
+            file_age = time.time() - os.path.getmtime(cache_file)
+            if file_age < one_week_seconds:
+                with open(cache_file, 'r') as f:
+                    return json.load(f)  # Load grid data from the cache file
+        except (IOError, json.JSONDecodeError) as e:
+            logger.error(f"Failed to read cache file {cache_file}: {e}")
+
+    # If cache file doesn't exist, is invalid, or is older than 1 week, fetch from URL
     try:
         response = requests.get(url, timeout=10)  # Set timeout to 10s
         response.raise_for_status()  # Raise an error for bad responses (4xx, 5xx)
-        return response.json()  # Convert response to JSON
+        grid_data = response.json()  # Convert response to JSON
+
+        # Save the fetched data to the cache file
+        try:
+            with open(cache_file, 'w') as f:
+                json.dump(grid_data, f)
+                logger.info(f"Grid data cached to {cache_file}")
+        except IOError as e:
+            logger.error(f"Failed to write cache file {cache_file}: {e}")
+
+        return grid_data
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to load grid data from {url}: {e}")
         return []
@@ -105,13 +134,19 @@ def extract_grid_info(description):
                     "indices": [],
                     "ied_mm": scale_mm,
                     "electrodes": electrodes,
-                    "reference_signals": []  # To store associated reference signals
+                    "reference_signals": [],
+                    "requested_path_idx": None,
+                    "performed_path_idx": None
                 }
             grid_info[grid_key]["indices"].append(idx)
             # Update current grid key
             current_grid_key = grid_key
         else:
-            # If no match and a current grid exists, treat it as a reference signal
+            if "requested path" in entry[0][0]:
+                grid_info[current_grid_key]["requested_path_idx"] = idx
+            if "performed path" in entry[0][0]:
+                grid_info[current_grid_key]["performed_path_idx"] = idx
+
             if current_grid_key:
                 grid_info[current_grid_key]["reference_signals"].append({"index": idx, "name": entry[0][0]})
 
