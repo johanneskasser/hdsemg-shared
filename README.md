@@ -31,8 +31,7 @@ This package lives inside a subdirectory (`src/shared_logic`) of a larger monore
 If you're actively developing or testing the module locally, you can install it in editable mode:
 
 ```bash
-cd path/to/hdsemg-pipe/src/shared_logic
-pip install -e .
+pip install -e hdsemg-shared
 ```
 
 This will allow you to make code changes without reinstalling the package.

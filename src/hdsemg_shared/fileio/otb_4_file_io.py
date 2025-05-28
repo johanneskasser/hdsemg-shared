@@ -96,26 +96,15 @@ def load_otb4_file(file_path):
     total_channels = sum(tr["NumberOfChannels"] for tr in track_info_list)
     logger.debug(f"Total channels from tracks: {total_channels}")
 
-    # We'll create final data array shape (total_channels x Nsamples) if we unify signals
-    # Because your MATLAB code does different things depending on device = 'Novecento+' or not:
     if device == "Novecento+":
-        # You appear to read multiple .sig files in a loop. We'll unify them for the final array
-        # We'll store each .sig in a separate chunk
-        # Then in the end, we might block them horizontally or vertically?
-        # Actually in the .m code, you do "for i=2:length(signals)" ...
-        # We'll do a simpler approach here for demonstration.
         data, descriptions, fs_main = read_novecento_plus(signals, track_info_list)
     else:
-        # The code in else reads the first .sig with short int, merges Gains from multiple track info
         data, descriptions, fs_main = read_standard_otb4(signals, track_info_list)
 
-    # We'll produce the final Nx1 description array
-    # "descriptions" might be a list of strings, length= total_channels
     description_array = np.empty((total_channels, 1), dtype=object)
     for i, desc_str in enumerate(descriptions):
         description_array[i, 0] = desc_str
 
-    # We guess sampling_frequency is the same for all track_info, or from the first
     sampling_frequency = fs_main
 
     n_samples = data.shape[1]
@@ -147,7 +136,7 @@ def parse_otb4_tracks_xml(xml_file):
           "SignalStreamPath": "...",
           "NumberOfChannels": ...,
           "AcquisitionChannel": ...,
-          "SubTitle": ...   # <-- neu: Grid identifier
+          "SubTitle": ...   # <-- Grid identifier
         }, ... ]
     """
     tree = ET.parse(xml_file)
@@ -208,8 +197,6 @@ def read_novecento_plus(signals, track_info_list):
     descriptions = []
     fs_main = None
 
-    # The .m code does: for i=2:length(signals) ...
-    # But we just do a simple approach. We'll iterate all except maybe the first if needed
     for sig_path in signals:
         # find track that references this sig file
         matched_track = None
@@ -252,9 +239,6 @@ def read_novecento_plus(signals, track_info_list):
             desc = f"{dev}-{sig}-{grid_id}-ch{c}"
             descriptions.append(desc)
 
-    # now we might stack these blocks vertically so shape= totalCh x samples
-    # But if blocks differ in samples => need to unify or so. We'll do a minimal approach:
-    # check all same number of samples? If so, vstack:
     lens = [b.shape[1] for b in data_blocks]
     if not all(l == lens[0] for l in lens):
         # mismatch sample counts => handle or raise
@@ -270,7 +254,6 @@ def read_novecento_plus(signals, track_info_list):
 
 def read_standard_otb4(signals, track_info_list):
     """
-    For the else case in the .m code:
     We read the *first* .sig using 'short' if so indicated,
     then apply Gains for each track in partial channel intervals.
     """
@@ -288,20 +271,13 @@ def read_standard_otb4(signals, track_info_list):
     raw = raw[:samples * totalCh]
     data_2d = raw.reshape((totalCh, samples), order='F').astype(np.float64)
 
-    # parse track_info: we do the "for i=2:... in matlab, but basically we do the Gains scaling
-    # The code in .m says for nSig=1 => we do data= short => then we have sumidx / idx array, etc.
-
-    # We'll create an array of indexes:
     indexes = []
     running_sum = 0
     for tr in track_info_list:
         running_sum += tr["NumberOfChannels"]
         indexes.append(running_sum)
-    # e.g. if track1 has 32 channels => idx=32, track2 => idx=64, etc
 
-    # now apply Gains scaling for each block
-    # in .m: data(nCh,:) = data(nCh,:) * PowerSupply{ntype} / (2^nADBit{ntype}) * 1000 / Gains{ntype}
-    # We'll store partial indexing in ascending order
+
     start_idx = 0
     for i, trackinfo in enumerate(track_info_list):
         end_idx = indexes[i]

@@ -75,15 +75,17 @@ def load_otb_file(file_path):
     raw_data = load_sig_data(sig_file, n_channels, nADbits)
     logger.debug(f"Loaded .sig data shape={raw_data.shape}")
 
-    data_scaled = scale_otb_data(raw_data, info_dict["Gains"], nADbits, info_dict["DeviceName"])
+    data_scaled = scale_otb_data(raw_data, info_dict["Gains"], nADbits, info_dict["DeviceName"], info_dict["AdapterIDs"])
     sampling_frequency = info_dict["SampleFrequency"]
     n_samples = data_scaled.shape[1]
 
     time = np.arange(n_samples) / sampling_frequency
 
-    # descriptions
-    description = info_dict['ChannelDescriptions']
-
+    # descriptions - convert to ndarray with shape (nChannels, 1)
+    description = np.array(
+        [[np.array([desc], dtype='<U43')] for desc in info_dict['ChannelDescriptions']],
+        dtype=object
+    )
     logger.debug(f"Cleaning up temp directory {tmpdir}")
     shutil.rmtree(tmpdir, ignore_errors=True)
     logger.info(f"OTB file loaded successfully: {file_name}")
@@ -125,6 +127,8 @@ def parse_otb_xml(xml_file):
     if total_ch <= 0:
         total_ch = 128  # fallback
 
+    adapter_ids = [""  ] * total_ch
+
     Gains = [1.0] * total_ch
     description_map = [None] * total_ch
 
@@ -159,9 +163,6 @@ def parse_otb_xml(xml_file):
                 muscle = ch_el.attrib.get("Muscle", "")
                 side = ch_el.attrib.get("Side", "")
 
-                # Now combine adapter info + channel info
-                # e.g. "Adapter(Muovi-32 channels device) :Ch(HD10MM0804-MUOVI 1 - -32 Adhesive Array 10 mm i.e.d.-Vastus Medialis-Left)"
-                # Or simpler: f"{adapter_id}-{adapter_desc}-{cid}-{prefix}-{descr}-{muscle}-{side}"
                 ch_description = build_channel_description(
                     adapter_id, adapter_desc, cid, prefix, descr, muscle, side
                 )
@@ -169,6 +170,7 @@ def parse_otb_xml(xml_file):
                 abs_ch = start_index + ch_index
                 Gains[abs_ch] = adapter_gain * ch_gain
                 description_map[abs_ch] = ch_description
+                adapter_ids[abs_ch] = adapter_id
 
     info = {
         "DeviceName": device_name,
@@ -176,7 +178,8 @@ def parse_otb_xml(xml_file):
         "ADbits": int(adbits_str),
         "TotalChannels": total_ch,
         "Gains": Gains,
-        "ChannelDescriptions": description_map
+        "ChannelDescriptions": description_map,
+        "AdapterIDs": adapter_ids
     }
     return info
 
@@ -218,17 +221,64 @@ def load_sig_data(sig_file, n_channels, nADbits=16):
     return data_2d
 
 
-def scale_otb_data(data, gains, nADbits, device_name=""):
-    logger.debug(f"scale_otb_data: device={device_name}, nADbits={nADbits}, #channels={data.shape[0]}")
-    if "QUATTRO" in device_name.upper():
-        power_supply = 5.0
-    elif "DUE" in device_name.upper():
-        power_supply = 3.3
-    else:
-        power_supply = 5.0
-    conv = power_supply / (2 ** nADbits) * 1000.0
-    for i in range(data.shape[0]):
-        g = gains[i] if (i < len(gains)) else 1.0
-        data[i, :] = data[i, :] * (conv / g)
+def scale_otb_data(data, gains, nADbits, device_name="", adapter_ids=None):
+    logger.debug(f"scale_otb_data: device={device_name}; AdapterIDs={np.unique(adapter_ids) if adapter_ids is not None else 'Unknown'}, nADbits={nADbits}, #channels={data.shape[0]}")
+
+    if adapter_ids is None:
+        adapter_ids = [""] * data.shape[0]
+
+    device_name = device_name.upper()
+
+    if "SYNCSTATION" in device_name:
+        # Spezielle Skalierungsfaktoren für SYNCSTATION
+        for i in range(data.shape[0]):
+            aid = adapter_ids[i]
+
+            if aid in ("AdapterControl", "AdapterQuaternions"):
+                continue; #no scaling for these adapters
+            if gains[i] == 202:  # Due+ oder Quattro+
+                data[i, :] = data[i, :] * 0.00024928  # PowerSupply=3.3V, nADbits=16, Gain=202
+            elif gains[i] == 0.5:  # Direct connection to Syncstation Input
+                data[i, :] = data[i, :] * 0.1526      # PowerSupply=5V, nADbits=16, Gain=0.5
+            elif gains[i] == 205:  # AdapterLoadCell
+                data[i, :] = data[i, :] * 0.00037217  # PowerSupply=5V, nADbits=16, Gain=205
+            else:  # Standard SYNCSTATION channels
+                data[i, :] = data[i, :] * 0.00028610  # PowerSupply=4.8V, nADbits=24, Gain=1
+
+    elif "QUATTROCENTO" in device_name or "QUATTRO" in device_name:
+        for i in range(data.shape[0]):
+            if gains[i] == 0.5:  # Direct connection
+                data[i, :] = data[i, :] * 0.1526      # PowerSupply=5V, nADbits=16, Gain=0.5
+            else:
+                data[i, :] = data[i, :] * 0.00050863  # PowerSupply=5V, nADbits=16, Gain=150
+
+    elif "DUE+" in device_name or "QUATTRO+" in device_name:
+        for i in range(data.shape[0]):
+            data[i, :] = data[i, :] * 0.00024928      # PowerSupply=3.3V, nADbits=16, Gain=202
+
+    elif "DUE" in device_name:
+        for i in range(data.shape[0]):
+            data[i, :] = data[i, :] * 0.00025177      # PowerSupply=3.3V, nADbits=16, Gain=200
+
+    elif "SESSANTAQUATTRO" in device_name or "SESSANTAQUATTRO+" in device_name:
+        power_supply = 4.8
+        for i in range(data.shape[0]):
+            if nADbits == 24:
+                # Anpassung der Verstärkung basierend auf dem MATLAB-Code
+                gain = gains[i]
+                if gain == 1: gain = 1
+                elif gain == 0.5: gain = 2
+                elif gain == 0.25: gain = 3
+                elif gain == 0.125: gain = 4
+                data[i, :] = data[i, :] * (power_supply/(2**24)*1000/gain)
+
+    else:  # Standardfall für andere Geräte
+        for i in range(data.shape[0]):
+            if gains[i] == 0.5:  # Direct connection to Auxiliary Input
+                data[i, :] = data[i, :] * 0.00057220  # PowerSupply=4.8V, nADbits=24, Gain=0.5
+            else:
+                power_supply = 4.8
+                data[i, :] = data[i, :] * (power_supply/(2**nADbits)*1000/gains[i])
+
     logger.debug("Scaling done.")
     return data
