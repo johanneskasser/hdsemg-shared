@@ -101,9 +101,10 @@ def load_otb4_file(file_path):
     else:
         data, descriptions, fs_main = read_standard_otb4(signals, track_info_list)
 
-    description_array = np.empty((total_channels, 1), dtype=object)
-    for i, desc_str in enumerate(descriptions):
-        description_array[i, 0] = desc_str
+    description_array = np.array(
+        [[np.array([desc], dtype=f'<U{len(desc)}')] for desc in descriptions],
+        dtype=object
+    )
 
     sampling_frequency = fs_main
 
