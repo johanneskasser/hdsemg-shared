@@ -205,4 +205,4 @@ def handle_entry(entry):
     elif isinstance(entry, np.ndarray):
         return entry[0][0]
     else:
-        raise ValueError(f"Unsupported entry type: {type(entry)}. Expected str or np.ndarray.")
+        raise ValueError(f"Unsupported entry type: {type(entry)}. Expected str or np.ndarray containing str.")

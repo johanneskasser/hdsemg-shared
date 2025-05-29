@@ -75,15 +75,17 @@ def load_otb_file(file_path):
     raw_data = load_sig_data(sig_file, n_channels, nADbits)
     logger.debug(f"Loaded .sig data shape={raw_data.shape}")
 
-    data_scaled = scale_otb_data(raw_data, info_dict["Gains"], nADbits, info_dict["DeviceName"])
+    data_scaled = scale_otb_data(raw_data, info_dict["Gains"], nADbits, info_dict["DeviceName"], adapter_types=info_dict["AdapterTypes"])
     sampling_frequency = info_dict["SampleFrequency"]
     n_samples = data_scaled.shape[1]
 
     time = np.arange(n_samples) / sampling_frequency
 
-    # descriptions
-    description = info_dict['ChannelDescriptions']
-
+    # descriptions - convert to ndarray with shape (nChannels, 1)
+    description = np.array(
+        [[np.array([desc], dtype=f'<U{len(desc)}')] for desc in info_dict['ChannelDescriptions']],
+        dtype=object
+    )
     logger.debug(f"Cleaning up temp directory {tmpdir}")
     shutil.rmtree(tmpdir, ignore_errors=True)
     logger.info(f"OTB file loaded successfully: {file_name}")
@@ -125,8 +127,11 @@ def parse_otb_xml(xml_file):
     if total_ch <= 0:
         total_ch = 128  # fallback
 
+    adapter_ids = [""  ] * total_ch
+
     Gains = [1.0] * total_ch
     description_map = [None] * total_ch
+    adapter_type_map = [None] * total_ch
 
     # Now parse each <Adapter> in <Channels>
     channels_el = root.find('Channels')
@@ -144,13 +149,19 @@ def parse_otb_xml(xml_file):
             # Also fetch additional attributes at the adapter level
             adapter_id = adapterEl.attrib.get("ID", "")
             adapter_desc = adapterEl.attrib.get("Description", "")
+            adapter_type = adapterEl.attrib.get("Type", adapterEl.attrib.get("ID", ""))
 
             # find <Channel> children
             channel_els = adapterEl.findall("Channel")
             for ch_el in channel_els:
-                ch_gain_str = ch_el.attrib.get("Gain", "1")
-                ch_gain = float(ch_gain_str)
                 ch_index = int(ch_el.attrib.get("Index", "0"))
+
+                # Extract channel-level gain if present, else use adapter gain
+                ch_gain_str = ch_el.attrib.get("Gain")
+                if ch_gain_str is not None:
+                    ch_gain = float(ch_gain_str)
+                else:
+                    ch_gain = adapter_gain
 
                 # Additional channel-level attributes
                 cid = ch_el.attrib.get("ID", "")
@@ -159,16 +170,15 @@ def parse_otb_xml(xml_file):
                 muscle = ch_el.attrib.get("Muscle", "")
                 side = ch_el.attrib.get("Side", "")
 
-                # Now combine adapter info + channel info
-                # e.g. "Adapter(Muovi-32 channels device) :Ch(HD10MM0804-MUOVI 1 - -32 Adhesive Array 10 mm i.e.d.-Vastus Medialis-Left)"
-                # Or simpler: f"{adapter_id}-{adapter_desc}-{cid}-{prefix}-{descr}-{muscle}-{side}"
                 ch_description = build_channel_description(
                     adapter_id, adapter_desc, cid, prefix, descr, muscle, side
                 )
 
                 abs_ch = start_index + ch_index
-                Gains[abs_ch] = adapter_gain * ch_gain
+                adapter_type_map[abs_ch] = adapter_type
+                Gains[abs_ch] = adapter_gain * ch_gain  # Multipliziere Adapter- und Channel-Gain
                 description_map[abs_ch] = ch_description
+                adapter_ids[abs_ch] = adapter_id
 
     info = {
         "DeviceName": device_name,
@@ -176,7 +186,9 @@ def parse_otb_xml(xml_file):
         "ADbits": int(adbits_str),
         "TotalChannels": total_ch,
         "Gains": Gains,
-        "ChannelDescriptions": description_map
+        "ChannelDescriptions": description_map,
+        "AdapterIDs": adapter_ids,
+        "AdapterTypes": adapter_type_map
     }
     return info
 
@@ -218,17 +230,31 @@ def load_sig_data(sig_file, n_channels, nADbits=16):
     return data_2d
 
 
-def scale_otb_data(data, gains, nADbits, device_name=""):
-    logger.debug(f"scale_otb_data: device={device_name}, nADbits={nADbits}, #channels={data.shape[0]}")
-    if "QUATTRO" in device_name.upper():
-        power_supply = 5.0
-    elif "DUE" in device_name.upper():
-        power_supply = 3.3
-    else:
-        power_supply = 5.0
-    conv = power_supply / (2 ** nADbits) * 1000.0
-    for i in range(data.shape[0]):
-        g = gains[i] if (i < len(gains)) else 1.0
-        data[i, :] = data[i, :] * (conv / g)
+def scale_otb_data(data, gains, nADbits, device_name, adapter_types=None, power_supplies=None):
+    """
+    Skaliert OTB+ Rohdaten wie in der MATLAB-Referenz:
+    data: np.ndarray, shape (n_channels, n_samples)
+    gains: list/array, Gain pro Kanal (aus XML)
+    nADbits: int, z.B. 16
+    device_name: str, z.B. 'SyncStation', 'Quattro', ...
+    adapter_types: list/array, Adapter-Typ pro Kanal (aus XML)
+    power_supplies: list/array, PowerSupply pro Kanal (optional, sonst Default 4.8)
+    """
+    data = data.astype(np.float64)  # Prepare for scaling
+    n_ch = data.shape[0]
+    if adapter_types is None:
+        adapter_types = [""] * n_ch
+    if power_supplies is None:
+        power_supplies = [4.8] * n_ch
+    dev = device_name.upper()
+    logger.debug(f"Start channel scaling: n_channels={n_ch}, nADbits={nADbits}, device={dev}")
+    for i in range(n_ch):
+        gain = gains[i] if gains[i] != 0 else 1.0  # Vermeide Division durch 0
+        ps = power_supplies[i]
+        logger.debug(f"Channel {i}: Gain={gain}, PowerSupply={ps}, AdapterType={adapter_types[i]}")
+        logger.debug(f"  Raw Data (first 5 values): {data[i, :5]}")
+        data[i, :] = data[i, :] * ps / (2 ** nADbits) * 1000 / gain
+        logger.debug(f"  Scaled (first 5 values): {data[i, :5]}")
     logger.debug("Scaling done.")
     return data
+
