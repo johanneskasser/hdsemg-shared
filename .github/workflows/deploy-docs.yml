@@ -5,6 +5,7 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - '.github/workflows/deploy-docs.yml'
 
 permissions:
   contents: write
