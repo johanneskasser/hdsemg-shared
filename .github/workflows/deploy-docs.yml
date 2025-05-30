@@ -2,9 +2,10 @@ name: 📦 Build & Deploy Docs
 
 on:
   push:
-    tags:
-      - 'v*'  # Triggers only on version tag pushes like v1.0.0
-
+    paths:
+      - 'docs/**'  # Only trigger on changes in the docs directory
+      - 'mkdocs.yml'  # Trigger on changes to the MkDocs configuration file
+      - '.github/workflows/deploy-docs.yml'  # Trigger on changes to this workflow file
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
