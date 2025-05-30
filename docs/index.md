@@ -64,9 +64,3 @@ This project is licensed under the MIT License. See the [GitHub repository](http
 
 > For usage examples and API documentation, see the [Usage Documentation](usage/) section.
 
----
-
-<div align="center">
-  <sub>Built with ❤️ using <a href="https://www.mkdocs.org/">MkDocs</a> and hosted on <a href="https://pages.github.com/">GitHub Pages</a>.</sub>
-</div>
-
