@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Required for pushing to gh-pages
+      id-token: write
     steps:
     - name: Checkout
       uses: actions/checkout@v3
