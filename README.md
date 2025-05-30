@@ -26,24 +26,6 @@ This package lives inside a subdirectory (`src/shared_logic`) of a larger monore
 
 ---
 
-## 🧪 Local Development
+## 🧪 Documentation
 
-If you're actively developing or testing the module locally, you can install it in editable mode:
-
-```bash
-pip install -e hdsemg-shared
-```
-
-This will allow you to make code changes without reinstalling the package.
-
----
-
-## 🧰 Requirements
-
-This module requires:
-
-- Python ≥ 3.7
-- `numpy`
-- `scipy`
-
-These will be installed automatically via `install_requires` if not already present in your environment.
+> Please refer to the [documentation](https://johanneskasser.github.io/hdsemg-shared/) for detailed usage instructions, examples, and API references.
