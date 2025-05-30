@@ -1,6 +1,6 @@
 <div align="center">
 <br>
-  <img src="../src/hdsemg_shared/resources/icon.png" alt="App Icon" width="100" height="100"><br>
+  <img src="assets/icon.png" alt="App Icon" width="100" height="100"><br>
     <h2 align="center">📦 hdsemg-shared 📦</h2>
     <h3 align="center">HDsEMG toolbox</h3>
 </div>
