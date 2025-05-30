@@ -1,0 +1,12 @@
+site_name: hdsemg-shared
+nav:
+  - Home: index.md
+  - Installation:
+      - Conda: installation/conda.md
+      - Pip: installation/pip.md
+  - Usage Documentation:
+      - fileio: usage/fileio.md
+      - filters: usage/filters.md
+      - preprocessing: usage/preprocessing.md
+      - grid: usage/grid.md
+  - Contributing: contributing.md
