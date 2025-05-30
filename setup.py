@@ -14,7 +14,7 @@ setup(
     author="Johannes Kasser",
     author_email="johanneskasser@outlook.de",
     description="Utility Methods for hd-semg files.",
-    url="https://github.com/johanneskasser/hdsemg-shared.git",
+    url="https://johanneskasser.github.io/hdsemg-shared/",
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
