@@ -7,6 +7,7 @@
 
 [![PyPI Version](https://img.shields.io/pypi/v/hdsemg-shared.svg?style=flat-square)](https://pypi.org/project/hdsemg-shared/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/hdsemg-shared.svg?style=flat-square)](https://pypi.org/project/hdsemg-shared/)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-hdsemg--shared-blue?logo=github&style=flat-square)](https://github.com/johanneskasser/hdsemg-shared)
 
 
 Reusable Python components and utilities for high-density surface EMG (HD-sEMG) signal processing and input/output (I/O).
