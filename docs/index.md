@@ -49,20 +49,20 @@ These will be installed automatically via `install_requires` if not already pres
 
 ## 📝 License
 
-This project is licensed under the MIT License. See the [GitHub repository](https://github.com/yourusername/hdsemg-shared) for details.
+This project is licensed under the MIT License. See the [GitHub repository](https://github.com/johanneskasser/hdsemg-shared) for details.
 
 ---
 
 ## 🌐 Links
 
-- [GitHub Repository](https://github.com/yourusername/hdsemg-shared)
+- [GitHub Repository](https://github.com/johanneskasser/hdsemg-shared)
 - [PyPI Project](https://pypi.org/project/hdsemg-shared/)
 
 ---
 
-> For installation instructions, see the [Installation](/installation/conda/) and [Installation](/installation/pip/) pages.
+> For installation instructions, see the [Installation](installation/conda.md) and [Installation](installation/pip.md) pages.
 
-> For usage examples and API documentation, see the [Usage Documentation](/usage/quick_start/) section.
+> For usage examples and API documentation, see the [Usage Documentation](usage/) section.
 
 ---
 
