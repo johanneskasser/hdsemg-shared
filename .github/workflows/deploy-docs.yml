@@ -1,0 +1,35 @@
+name: 📦 Build & Deploy Docs
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers only on version tag pushes like v1.0.0
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for pushing to gh-pages
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10.x'  # Use the latest 3.10.x version
+
+    - name: Install dependencies
+      run: |
+        pip install mkdocs mkdocs-material
+
+    - name: Build the docs
+      run: mkdocs build --strict
+
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v2
+      with:
+        publish_branch: gh-pages
+        publish_dir: ./site
+        keep_history: true
+
