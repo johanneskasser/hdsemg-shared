@@ -47,25 +47,32 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         run: twine upload dist/*
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: ${{ env.BODY }}
-          draft: false
-          prerelease: false
+      - name: Gather Release Notes
+        shell: 'bash'
+        id: notes
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | sed -n "2p")
+          echo "Previous tag: $PREV_TAG"
+          echo "This tag:    $RAW_TAG"
 
-      - name: Upload README.md to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "<!-- Auto-generated. Do not edit. -->" > release-notes.md
+          echo "" >> release-notes.md
+          cat README.md >> release-notes.md
+
+          echo "" >> release-notes.md
+          echo "## Changelog" >> release-notes.md
+          echo "" >> release-notes.md
+
+          git log $PREV_TAG..$RAW_TAG --pretty=format:'- [`%h`](https://github.com/${{ github.repository }}/commit/%H) %s' \
+            >> release-notes.md
+
+          echo "notes_file=release-notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./README.md
-          asset_name: README.md
-          asset_content_type: text/markdown
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          bodyFile: ${{ steps.notes.outputs.notes_file }}
 
