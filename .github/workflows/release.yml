@@ -34,13 +34,6 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Read README.md
-        id: readme
-        run: |
-          echo "BODY<<EOF" >> $GITHUB_ENV
-          cat README.md >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
       - name: Publish package to PyPI
         env:
           TWINE_USERNAME: __token__
