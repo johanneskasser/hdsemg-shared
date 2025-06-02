@@ -11,9 +11,11 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/project/hdsemg-shared/
+    env:
+      RAW_TAG: ${{ github.ref_name }}
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -39,3 +41,36 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         run: twine upload dist/*
+
+      - name: Gather Release Notes
+        shell: 'bash'
+        id: notes
+        run: |
+          # 1) Find the previous tag (sorted by tag date)
+          PREV_TAG=$(git tag --sort=-creatordate | sed -n "2p")
+          echo "Previous tag: $PREV_TAG"
+          echo "This tag:    $RAW_TAG"
+
+          echo "<!-- Auto-generated. Do not edit. -->" > release-notes.md
+          echo "" >> release-notes.md
+          cat README.md >> release-notes.md
+
+          echo "" >> release-notes.md
+          echo "## Changelog" >> release-notes.md
+          echo "" >> release-notes.md
+
+          if [ -n "$PREV_TAG" ]; then
+            git log "$PREV_TAG..$RAW_TAG" --pretty=format:'- [`%h`](https://github.com/${{ github.repository }}/commit/%H) %s' >> release-notes.md
+          else
+            git log "$RAW_TAG" --pretty=format:'- [`%h`](https://github.com/${{ github.repository }}/commit/%H) %s' >> release-notes.md
+          fi
+
+          echo "notes_file=release-notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          bodyFile: ${{ steps.notes.outputs.notes_file }}
