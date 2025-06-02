@@ -46,8 +46,8 @@ jobs:
         shell: 'bash'
         id: notes
         run: |
-          RAW_TAG="${GITHUB_REF_NAME:-${RAW_TAG}}"
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "$RAW_TAG" | tail -n 1)
+          # 1) Find the previous tag (sorted by tag date)
+          PREV_TAG=$(git tag --sort=-creatordate | sed -n "2p")
           echo "Previous tag: $PREV_TAG"
           echo "This tag:    $RAW_TAG"
 
