@@ -106,4 +106,11 @@ The filters package is designed to be extensible. Planned or possible additions 
 
 ## Source Code
 
-The implementation can be found in `src/hdsemg_shared/filters/bandpass.py`. The code is well-documented and follows numpy docstring conventions for easy integration with IDEs and documentation tools.
+> The implementation can be found in `src/hdsemg_shared/filters/bandpass.py`. 
+
+## API Dokumentation
+
+::: hdsemg_shared.filters.bandpass
+    handler: python
+    options:
+      heading_level: 3

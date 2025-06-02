@@ -118,6 +118,14 @@ This results in j-1 differential channels for j input channels.
 
 ## Source Code
 
-The implementation can be found in `src/hdsemg_shared/preprocessing/differential.py`. The code includes type hints and detailed docstrings for easy integration with development tools.
+> The implementation can be found in `src/hdsemg_shared/preprocessing/differential.py`. The code includes type hints and detailed docstrings for easy integration with development tools.
 
 ---
+
+### API Documentation
+
+::: hdsemg_shared.preprocessing
+    handler: python
+    options:
+      heading_level: 3
+      show_root_heading: false

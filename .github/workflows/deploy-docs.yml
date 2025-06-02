@@ -2,12 +2,8 @@ name: 📦 Build & Deploy Docs
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/deploy-docs.yml'
+    tags:
+      - 'v*'  # Triggers only on version tag pushes like v1.0.0
 
 permissions:
   contents: write
@@ -24,7 +20,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install mkdocs mkdocs-material
+        run: pip install mkdocs mkdocs-material  mkdocstrings[python-legacy]>=0.18
 
       - name: Build with MkDocs
         run: mkdocs build --strict

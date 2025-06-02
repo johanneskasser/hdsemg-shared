@@ -10,3 +10,9 @@ nav:
       - preprocessing: usage/preprocessing.md
       - grid: usage/grid.md
   - Contributing: contributing.md
+
+plugins:
+- mkdocstrings:
+    handlers:
+      python:
+        paths: [src]  # search packages in the src folder

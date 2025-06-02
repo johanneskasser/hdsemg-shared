@@ -85,5 +85,15 @@ save_selection_to_mat(save_file_path, data, time, description, sampling_frequenc
 
 ---
 
-For more details, see the API documentation or the source code in `src/hdsemg_shared/fileio/`.
+> For more details, see the API documentation or the source code in `src/hdsemg_shared/fileio/`.
+
+---
+
+## API Documentation
+
+::: hdsemg_shared.fileio
+    handler: python
+    options:
+      heading_level: 3
+
 
