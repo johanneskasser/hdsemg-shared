@@ -20,7 +20,6 @@ def load_mat_file(file_path):
 import os
 import scipy.io as sio
 from pathlib import Path
-from _log.log_config import logger
 
 
 def save_selection_to_mat(save_file_path, data, time, description, sampling_frequency, file_name,

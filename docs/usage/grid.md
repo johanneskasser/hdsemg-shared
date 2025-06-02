@@ -134,4 +134,12 @@ for grid in grids:
 
 ## Source Code
 
-The implementation can be found in `src/hdsemg_shared/grid.py`. The code includes type hints and extensive error handling for robust operation.
+> The implementation can be found in `src/hdsemg_shared/grid.py`. The code includes type hints and extensive error handling for robust operation.
+
+--- 
+## API Documentation
+
+::: hdsemg_shared.grid
+    handler: python
+    options:
+      heading_level: 3

@@ -24,5 +24,3 @@ pip install hdsemg-shared
 > **Note:** The main library is installed via PyPI, as there is no Conda-Forge package. Core dependencies are installed via Conda for best compatibility.
 
 ---
-
-For more information and troubleshooting, see the [documentation](../index.md).
