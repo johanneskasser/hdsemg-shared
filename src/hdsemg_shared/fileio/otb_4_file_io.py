@@ -150,16 +150,15 @@ def parse_otb4_tracks_xml(xml_file):
     track_info_elems = track_info_parent.findall("TrackInfo")
     results = []
     for tr_el in track_info_elems:
-        device_str = getattr(tr_el.find("Device"), "text", "Unknown").strip()
-        gain_str = getattr(tr_el.find("Gain"), "text", "1")
-        bits_str = getattr(tr_el.find("ADC_Nbits"), "text", "16")
-        rng_str = getattr(tr_el.find("ADC_Range"), "text", "5")
-        fs_str = getattr(tr_el.find("SamplingFrequency"), "text", "2000")
-        path_str = getattr(tr_el.find("SignalStreamPath"), "text", "").strip()
-        nchan_str = getattr(tr_el.find("NumberOfChannels"), "text", "0")
-        acq_str = getattr(tr_el.find("AcquisitionChannel"), "text", "0")
-        # Neu: SubTitle auslesen
-        subtitle_str = getattr(tr_el.find("SubTitle"), "text", "Unknown").strip()
+        device_str = _get_text_save(tr_el, "Device", default="Unknown", do_strip= True)
+        gain_str = _get_text_save(tr_el, "Gain", default="1", do_strip= False)
+        bits_str = _get_text_save(tr_el, "ADC_Nbits", default="16", do_strip= False)
+        rng_str = _get_text_save(tr_el, "ADC_Range", default="5", do_strip= False)
+        fs_str = _get_text_save(tr_el, "SamplingFrequency", default="2000", do_strip= False)
+        path_str = _get_text_save(tr_el, "SignalStreamPath", default="", do_strip= True)
+        nchan_str = _get_text_save(tr_el, "NumberOfChannels", default="0", do_strip= False)
+        acq_str = _get_text_save(tr_el, "AcquisitionChannel", default="0", do_strip= False)
+        subtitle_str = _get_text_save(tr_el, "SubTitle", default="Unknown", do_strip= True)
 
         # Konvertierungen
         gain_val = float(gain_str)
@@ -182,6 +181,23 @@ def parse_otb4_tracks_xml(xml_file):
         })
 
     return results
+
+def _get_text_save(parent, tag, default="", do_strip=True, requred_none_null=False):
+    """
+       Find the first child <tag> under `parent`, return its .text (stripped if requested),
+       or return `default` if either the element is missing or its .text is None.
+
+       parent     : an Element (e.g. tr_el)
+       tag        : string name of the sub‐element to find
+       default    : fallback string if no element or element.text is None
+       do_strip   : whether to apply .strip() to the result
+       """
+    el = parent.find(tag)
+    if el is None and requred_none_null:
+        logger.error(f"Required tag '{tag}' not found in {parent.tag}.")
+        raise ValueError(f"Required tag '{tag}' not found in {parent.tag}.")
+    raw = el.text if (el is not None and el.text is not None) else default
+    return raw.strip() if do_strip else raw
 
 
 
