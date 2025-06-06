@@ -60,7 +60,6 @@ This project is licensed under the MIT License. See the [GitHub repository](http
 
 ---
 
-> For installation instructions, see the [Installation](installation/conda.md) and [Installation](installation/pip.md) pages.
+> For installation instructions, see the [Conda Installation](installation/conda.md) and [Pip Installation](installation/pip.md) pages.
 
-> For usage examples and API documentation, see the [Usage Documentation](usage/) section.
 
