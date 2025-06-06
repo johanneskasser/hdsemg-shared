@@ -1,0 +1,1167 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Python library toolbox to work with high-density surface electromyography (HDsEMG) data.">
+      
+      
+        <meta name="author" content="Johannes Kasser">
+      
+      
+        <link rel="canonical" href="https://johanneskasser.github.io/hdsemg-shared/0.10.7/usage/filters/">
+      
+      
+        <link rel="prev" href="../fileio/">
+      
+      
+        <link rel="next" href="../preprocessing/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>filters - hdsemg-shared</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.342714a4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#filters" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hdsemg-shared" class="md-header__button md-logo" aria-label="hdsemg-shared" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hdsemg-shared
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              filters
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/johanneskasser/hdsemg-shared" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hdsemg-shared
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hdsemg-shared" class="md-nav__button md-logo" aria-label="hdsemg-shared" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hdsemg-shared
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/johanneskasser/hdsemg-shared" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hdsemg-shared
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Installation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/conda/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conda
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/pip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pip
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Usage Documentation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Usage Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fileio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    fileio
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    filters
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    filters
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bandpass-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bandpass Filter
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bandpass Filter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Reference
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Details
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Usage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Use Cases
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Future Extensions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Source Code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-dokumentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Dokumentation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Dokumentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass" class="md-nav__link">
+    <span class="md-ellipsis">
+      hdsemg_shared.filters.bandpass
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass.bandpass_filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      bandpass_filter()
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="bandpass_filter()">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass.bandpass_filter--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass.bandpass_filter--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    preprocessing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    grid
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bandpass-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bandpass Filter
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bandpass Filter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Reference
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Details
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Usage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Use Cases
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Future Extensions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Source Code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-dokumentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Dokumentation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Dokumentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass" class="md-nav__link">
+    <span class="md-ellipsis">
+      hdsemg_shared.filters.bandpass
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass.bandpass_filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      bandpass_filter()
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="bandpass_filter()">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass.bandpass_filter--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.filters.bandpass.bandpass_filter--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="filters">Filters<a class="headerlink" href="#filters" title="Permanent link">&para;</a></h1>
+<p>The <code>filters</code> package provides digital signal processing filters specifically designed for HD-sEMG signal processing. All filters are implemented with a focus on phase preservation and numerical stability.</p>
+<h2 id="bandpass-filter">Bandpass Filter<a class="headerlink" href="#bandpass-filter" title="Permanent link">&para;</a></h2>
+<p>The package provides a zero-phase Butterworth bandpass filter implementation that is particularly suited for EMG signal processing. The filter is implemented using SciPy's <code>butter</code> and <code>sosfiltfilt</code> functions for optimal numerical stability.</p>
+<h3 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">lowcut</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">highcut</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply a zero-phase Butterworth bandpass filter to 1D data.&quot;&quot;&quot;</span>
+</code></pre></div>
+
+<h4 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h4>
+<ul>
+<li>
+<p><strong>data</strong> (<code>np.ndarray</code>): </p>
+<ul>
+<li>1D array of signal samples to be filtered</li>
+<li>Shape: (n_samples,)</li>
+<li>Type: float</li>
+</ul>
+</li>
+<li>
+<p><strong>order</strong> (<code>int</code>): </p>
+<ul>
+<li>Filter order</li>
+<li>Higher orders give sharper cutoffs but may introduce more numerical artifacts</li>
+<li>Typical values: 2-8</li>
+</ul>
+</li>
+<li>
+<p><strong>lowcut</strong> (<code>float</code>): </p>
+<ul>
+<li>Lower cutoff frequency in Hz</li>
+<li>Typical EMG values: 10-30 Hz</li>
+</ul>
+</li>
+<li>
+<p><strong>highcut</strong> (<code>float</code>): </p>
+<ul>
+<li>Upper cutoff frequency in Hz</li>
+<li>Typical EMG values: 400-500 Hz</li>
+</ul>
+</li>
+<li>
+<p><strong>fs</strong> (<code>float</code>): </p>
+<ul>
+<li>Sampling frequency in Hz</li>
+<li>Must be at least 2x the highest frequency component (Nyquist criterion)</li>
+</ul>
+</li>
+</ul>
+<h4 id="returns">Returns<a class="headerlink" href="#returns" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>filtered_data</strong> (<code>np.ndarray</code>):<ul>
+<li>Filtered signal</li>
+<li>Same shape as input data</li>
+<li>Zero-phase (no temporal shifting)</li>
+</ul>
+</li>
+</ul>
+<h3 id="implementation-details">Implementation Details<a class="headerlink" href="#implementation-details" title="Permanent link">&para;</a></h3>
+<p>The filter uses:
+- Butterworth filter design for maximally flat frequency response
+- Second-order sections (SOS) form for improved numerical stability
+- Zero-phase filtering via forward-backward application (sosfiltfilt)
+- Automatic scaling of frequencies to Nyquist frequency</p>
+<h3 id="example-usage">Example Usage<a class="headerlink" href="#example-usage" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hdsemg_shared.filters.bandpass</span><span class="w"> </span><span class="kn">import</span> <span class="n">bandpass_filter</span>
+
+<span class="c1"># Generate sample EMG data</span>
+<span class="n">fs</span> <span class="o">=</span> <span class="mi">2000</span>  <span class="c1"># Sample rate: 2kHz</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>  <span class="c1"># 1 second of data</span>
+<span class="n">emg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">fs</span><span class="p">)</span>  <span class="c1"># Simulated noise-like EMG</span>
+
+<span class="c1"># Apply bandpass filter (20-450 Hz, 4th order)</span>
+<span class="n">filtered_emg</span> <span class="o">=</span> <span class="n">bandpass_filter</span><span class="p">(</span>
+    <span class="n">data</span><span class="o">=</span><span class="n">emg</span><span class="p">,</span>
+    <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">lowcut</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>    <span class="c1"># Remove low-frequency drift</span>
+    <span class="n">highcut</span><span class="o">=</span><span class="mi">450</span><span class="p">,</span>  <span class="c1"># Remove high-frequency noise</span>
+    <span class="n">fs</span><span class="o">=</span><span class="n">fs</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<h3 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Filter Order Selection</strong>:</li>
+<li>Start with order=4 for most applications</li>
+<li>Increase order if you need sharper cutoffs</li>
+<li>
+<p>Decrease order if you observe ringing artifacts</p>
+</li>
+<li>
+<p><strong>Frequency Selection</strong>:</p>
+</li>
+<li>For surface EMG: lowcut=20Hz, highcut=450Hz is typical</li>
+<li>Adjust based on your specific application and noise conditions</li>
+<li>
+<p>Ensure highcut &lt; fs/2 (Nyquist frequency)</p>
+</li>
+<li>
+<p><strong>Edge Effects</strong>:</p>
+</li>
+<li>The filter may introduce edge effects at the start/end of the signal</li>
+<li>Consider padding your signal or discarding edge regions in critical analyses</li>
+</ol>
+<h3 id="common-use-cases">Common Use Cases<a class="headerlink" href="#common-use-cases" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Removing power line interference and baseline drift</li>
+<li>Isolating the main EMG frequency band (20-450 Hz)</li>
+<li>Pre-processing before amplitude analysis or feature extraction</li>
+</ul>
+<h2 id="future-extensions">Future Extensions<a class="headerlink" href="#future-extensions" title="Permanent link">&para;</a></h2>
+<p>The filters package is designed to be extensible. Planned or possible additions include:</p>
+<ul>
+<li>Notch filters for power line interference</li>
+<li>Adaptive filters for specific noise types</li>
+<li>Wavelet-based filtering approaches</li>
+<li>Multi-channel filtering utilities</li>
+</ul>
+<h2 id="source-code">Source Code<a class="headerlink" href="#source-code" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>The implementation can be found in <code>src/hdsemg_shared/filters/bandpass.py</code>. </p>
+</blockquote>
+<h2 id="api-dokumentation">API Dokumentation<a class="headerlink" href="#api-dokumentation" title="Permanent link">&para;</a></h2>
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.filters.bandpass"></a>
+    <div class="doc doc-contents first">
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.bandpass.bandpass_filter" class="doc doc-heading">
+<code class=" language-python"><span class="n">bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span></code>
+
+
+<a href="#hdsemg_shared.filters.bandpass.bandpass_filter" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Exact Python replica of Ton van den Bogert's MATLAB <code>bandpassfilter</code>.
+@credit Ton van den Bogert, https://biomch-l.isbweb.org/archive/index.php/t-26625.html</p>
+<hr />
+<h5 id="hdsemg_shared.filters.bandpass.bandpass_filter--parameters">Parameters<a class="headerlink" href="#hdsemg_shared.filters.bandpass.bandpass_filter--parameters" title="Permanent link">&para;</a></h5>
+<p>data : 1-D ndarray
+    Signal to be filtered.
+N : int
+    <em>Total</em> filter order requested by the user (must be even).
+    Internally the Butterworth prototype is designed with order N/2 and then
+    applied forwards &amp; backwards (filtfilt) which doubles the effective order.
+fcl, fch : float
+    Lower and higher cut-off frequencies [Hz].
+fs : float
+    Sampling frequency [Hz].</p>
+<h5 id="hdsemg_shared.filters.bandpass.bandpass_filter--returns">Returns<a class="headerlink" href="#hdsemg_shared.filters.bandpass.bandpass_filter--returns" title="Permanent link">&para;</a></h5>
+<p>fdata : ndarray
+    Zero-phase band-pass filtered signal (same length as <code>data</code>).</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/bandpass.py</code></summary>
+          <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                          <span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                          <span class="n">fcl</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                          <span class="n">fch</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                          <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exact Python replica of Ton van den Bogert&#39;s MATLAB `bandpassfilter`.</span>
+<span class="sd">    @credit Ton van den Bogert, https://biomch-l.isbweb.org/archive/index.php/t-26625.html</span>
+
+<span class="sd">    -------------------------------------------------------------------</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    data : 1-D ndarray</span>
+<span class="sd">        Signal to be filtered.</span>
+<span class="sd">    N : int</span>
+<span class="sd">        *Total* filter order requested by the user (must be even).</span>
+<span class="sd">        Internally the Butterworth prototype is designed with order N/2 and then</span>
+<span class="sd">        applied forwards &amp; backwards (filtfilt) which doubles the effective order.</span>
+<span class="sd">    fcl, fch : float</span>
+<span class="sd">        Lower and higher cut-off frequencies [Hz].</span>
+<span class="sd">    fs : float</span>
+<span class="sd">        Sampling frequency [Hz].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fdata : ndarray</span>
+<span class="sd">        Zero-phase band-pass filtered signal (same length as `data`).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># ------------- 1. argument checks  ----------</span>
+    <span class="k">if</span> <span class="n">N</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">N</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;N must be an even integer ≥ 2 (bi-directional filtering).&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fcl</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fch</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fcl</span> <span class="o">&gt;=</span> <span class="n">fch</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cut-off frequencies must satisfy 0 &lt; fcl &lt; fch &lt; fs/2.&quot;</span><span class="p">)</span>
+    <span class="c1"># ------------------------------------------------------------------------</span>
+
+    <span class="c1"># ------------- 2. translate MATLAB design rule --------------------------</span>
+    <span class="c1"># In Ton’s routine Wn is *pre-warped* so that after filtfilt()</span>
+    <span class="c1"># the –3 dB point sits exactly at the user’s fcl/fch.</span>
+    <span class="n">halfN</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="mi">2</span>                      <span class="c1"># order actually given to butter()</span>
+    <span class="n">beta</span>  <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">N</span><span class="p">))</span> <span class="c1"># pre-warping constant</span>
+    <span class="n">Wn</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">]))</span> <span class="o">/</span> <span class="p">(</span><span class="n">fs</span> <span class="o">*</span> <span class="n">beta</span><span class="p">)</span>  <span class="c1"># normalised (0–1), identical to MATLAB</span>
+    <span class="c1"># ------------------------------------------------------------------------</span>
+
+    <span class="c1"># ------------- 3. design filter &amp; apply zero-phase ----------------------</span>
+    <span class="n">sos</span>   <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="n">halfN</span><span class="p">,</span> <span class="n">Wn</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s1">&#39;sos&#39;</span><span class="p">)</span>  <span class="c1"># identical poles/zeros</span>
+    <span class="n">fdata</span> <span class="o">=</span> <span class="n">sosfiltfilt</span><span class="p">(</span><span class="n">sos</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>                   <span class="c1"># zero-phase (like filtfilt)</span>
+    <span class="k">return</span> <span class="n">fdata</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+    
+  </body>
+</html>

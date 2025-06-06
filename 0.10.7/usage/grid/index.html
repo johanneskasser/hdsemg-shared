@@ -1,0 +1,1867 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Python library toolbox to work with high-density surface electromyography (HDsEMG) data.">
+      
+      
+        <meta name="author" content="Johannes Kasser">
+      
+      
+        <link rel="canonical" href="https://johanneskasser.github.io/hdsemg-shared/0.10.7/usage/grid/">
+      
+      
+        <link rel="prev" href="../preprocessing/">
+      
+      
+        <link rel="next" href="../../contributing/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>grid - hdsemg-shared</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.342714a4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#grid-utilities" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hdsemg-shared" class="md-header__button md-logo" aria-label="hdsemg-shared" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hdsemg-shared
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              grid
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/johanneskasser/hdsemg-shared" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hdsemg-shared
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hdsemg-shared" class="md-nav__button md-logo" aria-label="hdsemg-shared" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hdsemg-shared
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/johanneskasser/hdsemg-shared" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hdsemg-shared
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Installation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/conda/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conda
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/pip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pip
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Usage Documentation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Usage Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fileio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    fileio
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    filters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    preprocessing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    grid
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    grid
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#core-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#grid-data-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Data Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grid-information-retrieval" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Information Retrieval
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Grid Information Retrieval">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grid-information-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Information Extraction
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Grid Information Extraction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      File Loading
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File Loading">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Details
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#grid-data-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Data Caching
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grid-name-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Name Pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handling
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Use Cases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Source Code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Documentation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      hdsemg_shared.grid
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.extract_grid_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      extract_grid_info()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.get_electrodes_from_grid_name" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_electrodes_from_grid_name()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.grid_json_setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      grid_json_setup()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.handle_entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      handle_entry()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.load_grid_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      load_grid_data()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.load_single_grid_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      load_single_grid_file()
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#core-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#grid-data-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Data Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grid-information-retrieval" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Information Retrieval
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Grid Information Retrieval">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grid-information-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Information Extraction
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Grid Information Extraction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      File Loading
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File Loading">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameters_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#returns_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Returns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Details
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#grid-data-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Data Caching
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grid-name-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grid Name Pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handling
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Use Cases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Source Code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Documentation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      hdsemg_shared.grid
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.extract_grid_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      extract_grid_info()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.get_electrodes_from_grid_name" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_electrodes_from_grid_name()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.grid_json_setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      grid_json_setup()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.handle_entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      handle_entry()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.load_grid_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      load_grid_data()
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hdsemg_shared.grid.load_single_grid_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      load_single_grid_file()
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="grid-utilities">Grid Utilities<a class="headerlink" href="#grid-utilities" title="Permanent link">&para;</a></h1>
+<p>The <code>grid</code> module provides utilities for handling HD-sEMG electrode grid configurations and their associated data. It includes functionality for loading grid specifications, extracting grid information from data files, and managing grid data caching.</p>
+<h2 id="core-functions">Core Functions<a class="headerlink" href="#core-functions" title="Permanent link">&para;</a></h2>
+<h3 id="grid-data-management">Grid Data Management<a class="headerlink" href="#grid-data-management" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">grid_json_setup</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize the global grid_data variable by loading data from a JSON file.&quot;&quot;&quot;</span>
+</code></pre></div>
+
+<p>This function initializes the grid configuration data from a remote source and caches it locally. It's automatically called when needed.</p>
+<h3 id="grid-information-retrieval">Grid Information Retrieval<a class="headerlink" href="#grid-information-retrieval" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_electrodes_from_grid_name</span><span class="p">(</span><span class="n">grid_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the number of electrodes for a given grid name.&quot;&quot;&quot;</span>
+</code></pre></div>
+
+<h4 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>grid_name</strong> (<code>str</code>): The name of the grid (e.g., "HD08MM0804")</li>
+</ul>
+<h4 id="returns">Returns<a class="headerlink" href="#returns" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>int</strong>: Number of electrodes if found, None otherwise</li>
+</ul>
+<h4 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h4>
+<div class="codehilite"><pre><span></span><code><span class="n">n_electrodes</span> <span class="o">=</span> <span class="n">get_electrodes_from_grid_name</span><span class="p">(</span><span class="s2">&quot;HD08MM0804&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of electrodes: </span><span class="si">{</span><span class="n">n_electrodes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="grid-information-extraction">Grid Information Extraction<a class="headerlink" href="#grid-information-extraction" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">extract_grid_info</span><span class="p">(</span><span class="n">description</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract grid dimensions, indices, and reference signals from the description.&quot;&quot;&quot;</span>
+</code></pre></div>
+
+<h4 id="parameters_1">Parameters<a class="headerlink" href="#parameters_1" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>description</strong> (<code>list</code>): List of descriptions containing grid information</li>
+</ul>
+<h4 id="returns_1">Returns<a class="headerlink" href="#returns_1" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>dict</strong>: Dictionary containing:</li>
+<li>Grid dimensions (rows × columns)</li>
+<li>Electrode indices</li>
+<li>Inter-electrode distance (IED)</li>
+<li>Number of electrodes</li>
+<li>Reference signal indices</li>
+<li>Path indices (requested and performed)</li>
+</ul>
+<h4 id="example_1">Example<a class="headerlink" href="#example_1" title="Permanent link">&para;</a></h4>
+<div class="codehilite"><pre><span></span><code><span class="n">grid_info</span> <span class="o">=</span> <span class="n">extract_grid_info</span><span class="p">(</span><span class="n">description_list</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">grid_key</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">grid_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Grid </span><span class="si">{</span><span class="n">grid_key</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- Dimensions: </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;rows&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;cols&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- IED: </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;ied_mm&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">mm&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- Electrodes: </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;electrodes&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="file-loading">File Loading<a class="headerlink" href="#file-loading" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_single_grid_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and process a single file to extract grid information.&quot;&quot;&quot;</span>
+</code></pre></div>
+
+<h4 id="parameters_2">Parameters<a class="headerlink" href="#parameters_2" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>file_path</strong> (<code>str</code>): Path to the data file</li>
+</ul>
+<h4 id="returns_2">Returns<a class="headerlink" href="#returns_2" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>list</strong>: List of dictionaries, each containing:</li>
+<li>File information (path, name)</li>
+<li>Grid data and time vectors</li>
+<li>Channel descriptions</li>
+<li>Sampling frequency</li>
+<li>Grid configuration (dimensions, IED)</li>
+<li>Unique grid identifier</li>
+</ul>
+<h4 id="example_2">Example<a class="headerlink" href="#example_2" title="Permanent link">&para;</a></h4>
+<div class="codehilite"><pre><span></span><code><span class="n">grids</span> <span class="o">=</span> <span class="n">load_single_grid_file</span><span class="p">(</span><span class="s2">&quot;path/to/your/emg_data.mat&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">grid</span> <span class="ow">in</span> <span class="n">grids</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Grid </span><span class="si">{</span><span class="n">grid</span><span class="p">[</span><span class="s1">&#39;grid_key&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- Shape: </span><span class="si">{</span><span class="n">grid</span><span class="p">[</span><span class="s1">&#39;rows&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">grid</span><span class="p">[</span><span class="s1">&#39;cols&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- Sampling rate: </span><span class="si">{</span><span class="n">grid</span><span class="p">[</span><span class="s1">&#39;sf&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> Hz&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- Data shape: </span><span class="si">{</span><span class="n">grid</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h2 id="implementation-details">Implementation Details<a class="headerlink" href="#implementation-details" title="Permanent link">&para;</a></h2>
+<h3 id="grid-data-caching">Grid Data Caching<a class="headerlink" href="#grid-data-caching" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Grid configurations are cached locally (~/.hdsemg_cache/grid_data_cache.json)</li>
+<li>Cache expires after one week</li>
+<li>Automatic fallback to remote data if cache is invalid or expired</li>
+</ul>
+<h3 id="grid-name-pattern">Grid Name Pattern<a class="headerlink" href="#grid-name-pattern" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Grid names follow the pattern: <code>HDxxMMxxxx</code></li>
+<li>First <code>xx</code>: Inter-electrode distance in mm</li>
+<li>Second <code>xx</code>: Number of rows</li>
+<li>Third <code>xx</code>: Number of columns</li>
+</ul>
+<h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Robust error handling for network issues</li>
+<li>Fallback mechanisms for cache failures</li>
+<li>Type checking for input parameters</li>
+</ul>
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Grid Configuration</strong>:</li>
+<li>Always verify grid dimensions match your electrode setup</li>
+<li>Check inter-electrode distances for spatial analysis</li>
+<li>
+<p>Validate channel counts against expected values</p>
+</li>
+<li>
+<p><strong>Data Loading</strong>:</p>
+</li>
+<li>Use load_single_grid_file for consistent data structure</li>
+<li>Verify sampling frequencies match your recording setup</li>
+<li>
+<p>Check reference signals are correctly identified</p>
+</li>
+<li>
+<p><strong>Cache Management</strong>:</p>
+</li>
+<li>Let the system manage the cache automatically</li>
+<li>Cache will refresh weekly to ensure up-to-date grid configurations</li>
+<li>Manual cache clearing possible by deleting ~/.hdsemg_cache</li>
+</ol>
+<h2 id="common-use-cases">Common Use Cases<a class="headerlink" href="#common-use-cases" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Loading multi-grid recordings</li>
+<li>Extracting spatial information from EMG data</li>
+<li>Managing reference signals and path information</li>
+<li>Consistent handling of different grid configurations</li>
+</ul>
+<h2 id="source-code">Source Code<a class="headerlink" href="#source-code" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>The implementation can be found in <code>src/hdsemg_shared/grid.py</code>. The code includes type hints and extensive error handling for robust operation.</p>
+</blockquote>
+<hr />
+<h2 id="api-documentation">API Documentation<a class="headerlink" href="#api-documentation" title="Permanent link">&para;</a></h2>
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.grid"></a>
+    <div class="doc doc-contents first">
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.grid.extract_grid_info" class="doc doc-heading">
+<code class=" language-python"><span class="n">extract_grid_info</span><span class="p">(</span><span class="n">description</span><span class="p">)</span></code>
+
+
+<a href="#hdsemg_shared.grid.extract_grid_info" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Extract grid dimensions, indices, and reference signals from the description.
+Only assigns reference signals to the grid they immediately follow.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>description</code></td>
+        <td><code>list</code></td>
+        <td><p>A list of descriptions containing grid information.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Returns:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>dict</code></td>
+      <td><p>A dictionary containing detailed grid information.</p></td>
+    </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/grid.py</code></summary>
+          <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">extract_grid_info</span><span class="p">(</span><span class="n">description</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract grid dimensions, indices, and reference signals from the description.</span>
+<span class="sd">    Only assigns reference signals to the grid they immediately follow.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        description (list): A list of descriptions containing grid information.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A dictionary containing detailed grid information.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">grid_data</span>
+    <span class="k">if</span> <span class="n">grid_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">grid_json_setup</span><span class="p">()</span>
+
+    <span class="n">grid_info</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">current_grid_key</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Pattern to match grid descriptions (e.g., HDxxMMxx)</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;HD(\d</span><span class="si">{2}</span><span class="s2">)MM(\d</span><span class="si">{2}</span><span class="s2">)(\d</span><span class="si">{2}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">description</span><span class="p">):</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">pattern</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">handle_entry</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+            <span class="c1"># Extract grid details</span>
+            <span class="n">scale_mm</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">cols</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+            <span class="n">grid_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">rows</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">cols</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="c1"># Initialize grid entry if not already present</span>
+            <span class="k">if</span> <span class="n">grid_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">grid_info</span><span class="p">:</span>
+                <span class="c1"># Search for electrodes in the grid data</span>
+                <span class="n">electrodes</span> <span class="o">=</span> <span class="n">get_electrodes_from_grid_name</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">electrodes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">electrodes</span> <span class="o">=</span> <span class="n">rows</span> <span class="o">*</span> <span class="n">cols</span>
+
+                <span class="n">grid_info</span><span class="p">[</span><span class="n">grid_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;rows&quot;</span><span class="p">:</span> <span class="n">rows</span><span class="p">,</span>
+                    <span class="s2">&quot;cols&quot;</span><span class="p">:</span> <span class="n">cols</span><span class="p">,</span>
+                    <span class="s2">&quot;indices&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                    <span class="s2">&quot;ied_mm&quot;</span><span class="p">:</span> <span class="n">scale_mm</span><span class="p">,</span>
+                    <span class="s2">&quot;electrodes&quot;</span><span class="p">:</span> <span class="n">electrodes</span><span class="p">,</span>
+                    <span class="s2">&quot;reference_signals&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                    <span class="s2">&quot;requested_path_idx&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="s2">&quot;performed_path_idx&quot;</span><span class="p">:</span> <span class="kc">None</span>
+                <span class="p">}</span>
+            <span class="n">grid_info</span><span class="p">[</span><span class="n">grid_key</span><span class="p">][</span><span class="s2">&quot;indices&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+            <span class="c1"># Update current grid key</span>
+            <span class="n">current_grid_key</span> <span class="o">=</span> <span class="n">grid_key</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;requested path&quot;</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">grid_info</span><span class="p">[</span><span class="n">current_grid_key</span><span class="p">][</span><span class="s2">&quot;requested_path_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
+            <span class="k">if</span> <span class="s2">&quot;performed path&quot;</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">grid_info</span><span class="p">[</span><span class="n">current_grid_key</span><span class="p">][</span><span class="s2">&quot;performed_path_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
+
+            <span class="k">if</span> <span class="n">current_grid_key</span><span class="p">:</span>
+                <span class="n">grid_info</span><span class="p">[</span><span class="n">current_grid_key</span><span class="p">][</span><span class="s2">&quot;reference_signals&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="n">idx</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]})</span>
+
+    <span class="k">return</span> <span class="n">grid_info</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.grid.get_electrodes_from_grid_name" class="doc doc-heading">
+<code class=" language-python"><span class="n">get_electrodes_from_grid_name</span><span class="p">(</span><span class="n">grid_name</span><span class="p">)</span></code>
+
+
+<a href="#hdsemg_shared.grid.get_electrodes_from_grid_name" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Search for the number of electrodes based on the grid name in the global grid data.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>grid_name</code></td>
+        <td><code>str</code></td>
+        <td><p>The name of the grid.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Returns:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>int</code></td>
+      <td><p>Number of electrodes if the grid is found; None otherwise.</p></td>
+    </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/grid.py</code></summary>
+          <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_electrodes_from_grid_name</span><span class="p">(</span><span class="n">grid_name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Search for the number of electrodes based on the grid name in the global grid data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        grid_name (str): The name of the grid.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        int: Number of electrodes if the grid is found; None otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">grid_data</span>
+    <span class="k">if</span> <span class="n">grid_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">grid_json_setup</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">grid</span> <span class="ow">in</span> <span class="n">grid_data</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">grid_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="n">grid</span><span class="p">[</span><span class="s2">&quot;product&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">grid</span><span class="p">[</span><span class="s2">&quot;electrodes&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="kc">None</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.grid.grid_json_setup" class="doc doc-heading">
+<code class=" language-python"><span class="n">grid_json_setup</span><span class="p">()</span></code>
+
+
+<a href="#hdsemg_shared.grid.grid_json_setup" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Initialize the global grid_data variable by loading data from a JSON file.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/grid.py</code></summary>
+          <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">grid_json_setup</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Initialize the global grid_data variable by loading data from a JSON file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">grid_data</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://drive.google.com/uc?export=download&amp;id=1FqR6-ZlT1U74PluFEjCSeIS7NXJQUT-v&quot;</span>
+    <span class="n">grid_data</span> <span class="o">=</span> <span class="n">load_grid_data</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.grid.handle_entry" class="doc doc-heading">
+<code class=" language-python"><span class="n">handle_entry</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span></code>
+
+
+<a href="#hdsemg_shared.grid.handle_entry" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Since entry can either be a array or a string, this function handles both cases and returns the entry as a string.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>entry</code></td>
+        <td></td>
+        <td><p>input data from desc array</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>      <p>Returns: str of the entry</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/grid.py</code></summary>
+          <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">handle_entry</span><span class="p">(</span><span class="n">entry</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Since entry can either be a array or a string, this function handles both cases and returns the entry as a string.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        entry: input data from desc array</span>
+
+<span class="sd">    Returns: str of the entry</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">entry</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported entry type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="si">}</span><span class="s2">. Expected str or np.ndarray containing str.&quot;</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.grid.load_grid_data" class="doc doc-heading">
+<code class=" language-python"><span class="n">load_grid_data</span><span class="p">(</span><span class="n">url</span><span class="p">)</span></code>
+
+
+<a href="#hdsemg_shared.grid.load_grid_data" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Load grid data from a JSON file on the internet or from a local cache.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>url</code></td>
+        <td><code>str</code></td>
+        <td><p>URL to the JSON file containing grid data.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Returns:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>list</code></td>
+      <td><p>A list of grid data from the file.</p></td>
+    </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/grid.py</code></summary>
+          <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_grid_data</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load grid data from a JSON file on the internet or from a local cache.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        url (str): URL to the JSON file containing grid data.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list: A list of grid data from the file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cache_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">),</span> <span class="s2">&quot;.hdsemg_cache&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Ensure the cache directory exists</span>
+    <span class="n">cache_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">,</span> <span class="s2">&quot;grid_data_cache.json&quot;</span><span class="p">)</span>
+    <span class="n">one_week_seconds</span> <span class="o">=</span> <span class="mi">7</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span>
+
+    <span class="c1"># Check if the cache file exists and is not older than 1 week</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cache_file</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">file_age</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getmtime</span><span class="p">(</span><span class="n">cache_file</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">file_age</span> <span class="o">&lt;</span> <span class="n">one_week_seconds</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>  <span class="c1"># Load grid data from the cache file</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to read cache file </span><span class="si">{</span><span class="n">cache_file</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># If cache file doesn&#39;t exist, is invalid, or is older than 1 week, fetch from URL</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># Set timeout to 10s</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>  <span class="c1"># Raise an error for bad responses (4xx, 5xx)</span>
+        <span class="n">grid_data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>  <span class="c1"># Convert response to JSON</span>
+
+        <span class="c1"># Save the fetched data to the cache file</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">grid_data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Grid data cached to </span><span class="si">{</span><span class="n">cache_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to write cache file </span><span class="si">{</span><span class="n">cache_file</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">grid_data</span>
+    <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load grid data from </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.grid.load_single_grid_file" class="doc doc-heading">
+<code class=" language-python"><span class="n">load_single_grid_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span></code>
+
+
+<a href="#hdsemg_shared.grid.load_single_grid_file" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Load and process a single .mat file to extract grid information.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>file_path</code></td>
+        <td><code>str</code></td>
+        <td><p>Path to the .mat file.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Returns:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>list</code></td>
+      <td><p>A list of dictionaries, each representing a grid from the file.</p></td>
+    </tr>
+  </tbody>
+</table>
+<p><strong>Exceptions:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>Exception</code></td>
+        <td><p>If any error occurs during loading or processing.</p></td>
+      </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/grid.py</code></summary>
+          <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_single_grid_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load and process a single .mat file to extract grid information.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        file_path (str): Path to the .mat file.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list: A list of dictionaries, each representing a grid from the file.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        Exception: If any error occurs during loading or processing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span> <span class="o">=</span> <span class="n">load_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+    <span class="n">grid_info</span> <span class="o">=</span> <span class="n">extract_grid_info</span><span class="p">(</span><span class="n">description</span><span class="p">)</span>
+
+    <span class="n">grids</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">grid_key</span><span class="p">,</span> <span class="n">gi</span> <span class="ow">in</span> <span class="n">grid_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">grid_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;file_path&#39;</span><span class="p">:</span> <span class="n">file_path</span><span class="p">,</span>
+            <span class="s1">&#39;file_name&#39;</span><span class="p">:</span> <span class="n">fn</span><span class="p">,</span>
+            <span class="s1">&#39;data&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span>
+            <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+            <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">description</span><span class="p">,</span>
+            <span class="s1">&#39;sf&#39;</span><span class="p">:</span> <span class="n">sf</span><span class="p">,</span>
+            <span class="s1">&#39;emg_indices&#39;</span><span class="p">:</span> <span class="n">gi</span><span class="p">[</span><span class="s1">&#39;indices&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;ref_indices&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">ref</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">ref</span> <span class="ow">in</span> <span class="n">gi</span><span class="p">[</span><span class="s1">&#39;reference_signals&#39;</span><span class="p">]],</span>
+            <span class="s1">&#39;rows&#39;</span><span class="p">:</span> <span class="n">gi</span><span class="p">[</span><span class="s1">&#39;rows&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;cols&#39;</span><span class="p">:</span> <span class="n">gi</span><span class="p">[</span><span class="s1">&#39;cols&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;ied_mm&#39;</span><span class="p">:</span> <span class="n">gi</span><span class="p">[</span><span class="s1">&#39;ied_mm&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;electrodes&#39;</span><span class="p">:</span> <span class="n">gi</span><span class="p">[</span><span class="s1">&#39;electrodes&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;grid_key&#39;</span><span class="p">:</span> <span class="n">grid_key</span><span class="p">,</span>
+            <span class="s1">&#39;grid_uid&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">())</span>
+        <span class="p">}</span>
+        <span class="n">grids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">grid_data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">grids</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+    
+  </body>
+</html>

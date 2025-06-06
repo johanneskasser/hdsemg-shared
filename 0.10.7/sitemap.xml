@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/contributing/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/installation/conda/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/installation/pip/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/usage/fileio/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/usage/filters/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/usage/grid/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+    <url>
+         <loc>https://johanneskasser.github.io/hdsemg-shared/0.10.7/usage/preprocessing/</loc>
+         <lastmod>2025-06-06</lastmod>
+    </url>
+</urlset>
