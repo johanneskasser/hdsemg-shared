@@ -203,6 +203,9 @@ def handle_entry(entry):
     if isinstance(entry, str):
         return entry
     elif isinstance(entry, np.ndarray):
-        return entry[0][0]
+        try:
+            return str(entry[0][0])
+        except IndexError:
+            raise ValueError("Entry is an empty numpy array or does not contain expected data.")
     else:
         raise ValueError(f"Unsupported entry type: {type(entry)}. Expected str or np.ndarray containing str.")
