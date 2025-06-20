@@ -1,3 +1,7 @@
 [build-system]
 requires = ["setuptools>=61.0.0", "wheel", "requests", "numpy"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/hdsemg_shared"
+pythonpath = ["src"]
