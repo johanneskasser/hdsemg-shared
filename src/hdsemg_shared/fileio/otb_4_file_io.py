@@ -287,9 +287,15 @@ def read_standard_otb4(signals, track_info_list):
     totalCh = sum(tr["NumberOfChannels"] for tr in track_info_list)
     # read 'short' => int16
     raw = np.fromfile(sig_path, dtype=np.int16)
-    samples = raw.size // totalCh
-    raw = raw[:samples * totalCh]
-    data_2d = raw.reshape((totalCh, samples), order='F').astype(np.float64)
+    expected_channels = totalCh
+    n_values = raw.size
+
+    if n_values % expected_channels != 0:
+        logger.error(f"Raw data length {n_values} is not divisible by {expected_channels} channels")
+        raise ValueError(f"Invalid signal data length for {expected_channels} channels")
+
+    samples = n_values // expected_channels
+    data_2d = raw[:samples * expected_channels].reshape((expected_channels, samples), order='F').astype(np.float64)
 
     indexes = []
     running_sum = 0
