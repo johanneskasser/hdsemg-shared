@@ -8,6 +8,8 @@
 [![PyPI Version](https://img.shields.io/pypi/v/hdsemg-shared.svg?style=flat-square)](https://pypi.org/project/hdsemg-shared/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/hdsemg-shared.svg?style=flat-square)](https://pypi.org/project/hdsemg-shared/)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-hdsemg--shared-blue?logo=github&style=flat-square)](https://github.com/johanneskasser/hdsemg-shared)
+[![codecov](https://codecov.io/gh/johanneskasser/hdsemg-shared/branch/main/graph/badge.svg)](https://codecov.io/gh/johanneskasser/hdsemg-shared)
+
 
 
 Reusable Python components and utilities for high-density surface EMG (HD-sEMG) signal processing and input/output (I/O).
@@ -18,12 +20,21 @@ This module provides shared logic for HD-sEMG signal processing and file handlin
 
 ## 📦 Installation
 
-This package lives inside a subdirectory (`src/shared_logic`) of a larger monorepo. It includes its own `setup.py` and can be installed directly via `pip`.
-
+This library can be installed via PyPI or from source. It is compatible with Python 3.7 and later.
+### Via PyPI
 ```bash
     python.exe -m pip install --upgrade pip 
     pip install hdsemg-shared
 ```
+### From Source
+```bash
+    git clone https://github.com/johanneskasser/hdsemg-shared.git
+    cd hdsemg-shared
+    python -m venv venv
+    source venv/bin/activate  # On Windows use venv\Scripts\activate
+    pip install -e .
+```
+    
 
 ---
 

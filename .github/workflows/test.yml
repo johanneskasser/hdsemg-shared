@@ -6,21 +6,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    - name: Install dependencies
-      run: |
-        pip install -r requirements-dev.txt
-        pip install pytest coverage codecov
-    - name: Run tests with coverage
-      continue-on-error: true
-      run: |
-        pytest --cov --cov-branch --cov-report=xml
+      - uses: actions/checkout@v3
 
-    - name: Upload to Codecov
-      if: always()
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install pytest coverage codecov
+
+      - name: Run tests with coverage (but capture result)
+        continue-on-error: true
+        id: run-tests
+        run: |
+          set -o pipefail
+          pytest --cov --cov-branch --cov-report=xml || echo "pytest failed" > test_failure
+
+      - name: Upload to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Fail if tests failed
+        if: always()
+        run: |
+          if [ -f test_failure ]; then
+            echo "Tests failed — marking job as failed."
+            exit 1
+          fi
