@@ -72,7 +72,11 @@ def _sanitize_data(data, time):
     time = np.squeeze(time)
     if time.ndim == 2:
         time = time[:, 0] if time.shape[1] == 1 else time[0, :]
-    if time.ndim != 1 or time.shape[0] != data.shape[0]:
-        raise ValueError(f"Incompatible form time {time.shape} for data {data.shape}. Please check the input data.")
+    if time.ndim == 1 and time.shape[0] != data.shape[0]:
+        # Try swapping
+        if time.shape[0] == data.shape[1]:
+            time = time.T
+        else:
+            raise ValueError(f"Incompatible form time {time.shape} for data {data.shape}. Please check the input data.")
 
     return data, time
