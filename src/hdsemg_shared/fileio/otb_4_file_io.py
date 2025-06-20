@@ -116,10 +116,13 @@ def load_otb4_file(file_path):
     logger.info(f"OTB4 file loaded successfully: {file_name}")
 
     # make sure that the data array is in the shape (time, shape)
-    if data.shape[0] != len(time) and data.shape[1] == len(time):
-        logger.debug("Transposing data array since it is in the wrong shape")
-        data = data.T
+    n_samples = data.shape[1] if data.shape[1] == len(time) else data.shape[0]
+    time = np.arange(n_samples) / sampling_frequency
 
+    # Transpose if needed
+    if data.shape[0] != len(time):
+        logger.debug("Adjusting shape via transpose to match time axis.")
+        data = data.T
 
     return data, time, description_array, sampling_frequency, file_name, file_size
 
