@@ -13,6 +13,14 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements-dev.txt
-        pip install pytest
-    - name: Run tests
-      run: PYTHONPATH=src pytest
+        pip install pytest coverage codecov
+    - name: Run tests with coverage
+      run: |
+        coverage run -m pytest
+        coverage report
+        coverage xml
+
+    - name: Upload to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
