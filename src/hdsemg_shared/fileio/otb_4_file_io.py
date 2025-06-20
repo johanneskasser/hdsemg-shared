@@ -115,14 +115,14 @@ def load_otb4_file(file_path):
     shutil.rmtree(tmpdir, ignore_errors=True)
     logger.info(f"OTB4 file loaded successfully: {file_name}")
 
-    # make sure that the data array is in the shape (time, shape)
-    n_samples = data.shape[1] if data.shape[1] == len(time) else data.shape[0]
-    time = np.arange(n_samples) / sampling_frequency
-
-    # Transpose if needed
-    if data.shape[0] != len(time):
-        logger.debug("Adjusting shape via transpose to match time axis.")
+    # robust shape match
+    if data.shape[1] == len(time):
+        pass  # already aligned
+    elif data.shape[0] == len(time):
+        logger.debug("Transposing data to align time dimension")
         data = data.T
+    else:
+        raise ValueError(f"Could not align data ({data.shape}) with time ({time.shape})")
 
     return data, time, description_array, sampling_frequency, file_name, file_size
 
