@@ -1,5 +1,14 @@
 name: Run Unit Tests
-on: [push, pull_request]
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+
 
 jobs:
   test:
