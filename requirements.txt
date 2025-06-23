@@ -1,0 +1,7 @@
+pytest
+numpy
+scipy
+setuptools>=61.0.0
+pytest-cov
+wheel
+requests

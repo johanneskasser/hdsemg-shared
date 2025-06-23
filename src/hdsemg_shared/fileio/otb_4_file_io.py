@@ -115,11 +115,14 @@ def load_otb4_file(file_path):
     shutil.rmtree(tmpdir, ignore_errors=True)
     logger.info(f"OTB4 file loaded successfully: {file_name}")
 
-    # make sure that the data array is in the shape (time, shape)
-    if data.shape[0] != len(time) and data.shape[1] == len(time):
-        logger.debug("Transposing data array since it is in the wrong shape")
+    # robust shape match
+    if data.shape[1] == len(time):
+        pass  # already aligned
+    elif data.shape[0] == len(time):
+        logger.debug("Transposing data to align time dimension")
         data = data.T
-
+    else:
+        raise ValueError(f"Could not align data ({data.shape}) with time ({time.shape})")
 
     return data, time, description_array, sampling_frequency, file_name, file_size
 
@@ -284,9 +287,15 @@ def read_standard_otb4(signals, track_info_list):
     totalCh = sum(tr["NumberOfChannels"] for tr in track_info_list)
     # read 'short' => int16
     raw = np.fromfile(sig_path, dtype=np.int16)
-    samples = raw.size // totalCh
-    raw = raw[:samples * totalCh]
-    data_2d = raw.reshape((totalCh, samples), order='F').astype(np.float64)
+    expected_channels = totalCh
+    n_values = raw.size
+
+    if n_values % expected_channels != 0:
+        logger.error(f"Raw data length {n_values} is not divisible by {expected_channels} channels")
+        raise ValueError(f"Invalid signal data length for {expected_channels} channels")
+
+    samples = n_values // expected_channels
+    data_2d = raw[:samples * expected_channels].reshape((expected_channels, samples), order='F').astype(np.float64)
 
     indexes = []
     running_sum = 0

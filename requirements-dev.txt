@@ -1,0 +1,10 @@
+pytest
+numpy
+scipy
+setuptools>=61.0.0
+pytest-cov
+wheel
+requests
+mkdocs
+mkdocs-material
+mkdocstrings[python-legacy]>=0.18

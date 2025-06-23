@@ -1,0 +1,50 @@
+name: Run Unit Tests
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest coverage codecov
+
+      - name: Run tests with coverage (but capture result)
+        continue-on-error: true
+        id: run-tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          pytest --cov --cov-branch --cov-report=xml; if ($LASTEXITCODE -ne 0) { "pytest failed" | Out-File test_failure }
+
+      - name: Upload to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Fail if tests failed
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path test_failure) {
+            Write-Host "Tests failed — marking job as failed."
+            exit 1
+          }
