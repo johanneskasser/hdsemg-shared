@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v3
@@ -20,9 +20,10 @@ jobs:
       - name: Run tests with coverage (but capture result)
         continue-on-error: true
         id: run-tests
+        shell: pwsh
         run: |
-          set -o pipefail
-          pytest --cov --cov-branch --cov-report=xml || echo "pytest failed" > test_failure
+          $ErrorActionPreference = 'Continue'
+          pytest --cov --cov-branch --cov-report=xml; if ($LASTEXITCODE -ne 0) { "pytest failed" | Out-File test_failure }
 
       - name: Upload to Codecov
         if: always()
@@ -32,8 +33,9 @@ jobs:
 
       - name: Fail if tests failed
         if: always()
+        shell: pwsh
         run: |
-          if [ -f test_failure ]; then
-            echo "Tests failed — marking job as failed."
+          if (Test-Path test_failure) {
+            Write-Host "Tests failed — marking job as failed."
             exit 1
-          fi
+          }
