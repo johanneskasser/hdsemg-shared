@@ -9,6 +9,7 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/hdsemg-shared.svg?style=flat-square)](https://pypi.org/project/hdsemg-shared/)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-hdsemg--shared-blue?logo=github&style=flat-square)](https://github.com/johanneskasser/hdsemg-shared)
 [![codecov](https://codecov.io/gh/johanneskasser/hdsemg-shared/branch/main/graph/badge.svg)](https://codecov.io/gh/johanneskasser/hdsemg-shared)
+[![Tested on Windows](https://img.shields.io/badge/tested%20on-windows-blue?logo=windows&style=flat-square)](#)
 
 
 
