@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>filters - hdsemg-shared</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">hdsemg-shared</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Installation</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../installation/conda/" class="dropdown-item">Conda</a>
+</li>
+                                    
+<li>
+    <a href="../../installation/pip/" class="dropdown-item">Pip</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Usage Documentation</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../fileio/" class="dropdown-item">fileio</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">filters</a>
+</li>
+                                    
+<li>
+    <a href="../preprocessing/" class="dropdown-item">preprocessing</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../contributing/" class="nav-link">Contributing</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                            <li class="nav-item">
+                                <a rel="prev" href="../fileio/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../preprocessing/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#filters" class="nav-link">Filters</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#bandpass-filter" class="nav-link">Bandpass Filter</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#future-extensions" class="nav-link">Future Extensions</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#source-code" class="nav-link">Source Code</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#api-dokumentation" class="nav-link">API Dokumentation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="filters">Filters</h1>
+<p>The <code>filters</code> package provides digital signal processing filters specifically designed for HD-sEMG signal processing. All filters are implemented with a focus on phase preservation and numerical stability.</p>
+<h2 id="bandpass-filter">Bandpass Filter</h2>
+<p>The package provides a zero-phase Butterworth bandpass filter implementation that is particularly suited for EMG signal processing. The filter is implemented using SciPy's <code>butter</code> and <code>sosfiltfilt</code> functions for optimal numerical stability.</p>
+<h3 id="api-reference">API Reference</h3>
+<pre><code class="language-python">def bandpass_filter(data: np.ndarray, order: int, lowcut: float, highcut: float, fs: float) -&gt; np.ndarray:
+    &quot;&quot;&quot;Apply a zero-phase Butterworth bandpass filter to 1D data.&quot;&quot;&quot;
+</code></pre>
+<h4 id="parameters">Parameters</h4>
+<ul>
+<li>
+<p><strong>data</strong> (<code>np.ndarray</code>): </p>
+<ul>
+<li>1D array of signal samples to be filtered</li>
+<li>Shape: (n_samples,)</li>
+<li>Type: float</li>
+</ul>
+</li>
+<li>
+<p><strong>order</strong> (<code>int</code>): </p>
+<ul>
+<li>Filter order</li>
+<li>Higher orders give sharper cutoffs but may introduce more numerical artifacts</li>
+<li>Typical values: 2-8</li>
+</ul>
+</li>
+<li>
+<p><strong>lowcut</strong> (<code>float</code>): </p>
+<ul>
+<li>Lower cutoff frequency in Hz</li>
+<li>Typical EMG values: 10-30 Hz</li>
+</ul>
+</li>
+<li>
+<p><strong>highcut</strong> (<code>float</code>): </p>
+<ul>
+<li>Upper cutoff frequency in Hz</li>
+<li>Typical EMG values: 400-500 Hz</li>
+</ul>
+</li>
+<li>
+<p><strong>fs</strong> (<code>float</code>): </p>
+<ul>
+<li>Sampling frequency in Hz</li>
+<li>Must be at least 2x the highest frequency component (Nyquist criterion)</li>
+</ul>
+</li>
+</ul>
+<h4 id="returns">Returns</h4>
+<ul>
+<li><strong>filtered_data</strong> (<code>np.ndarray</code>):<ul>
+<li>Filtered signal</li>
+<li>Same shape as input data</li>
+<li>Zero-phase (no temporal shifting)</li>
+</ul>
+</li>
+</ul>
+<h3 id="implementation-details">Implementation Details</h3>
+<p>The filter uses:
+- Butterworth filter design for maximally flat frequency response
+- Second-order sections (SOS) form for improved numerical stability
+- Zero-phase filtering via forward-backward application (sosfiltfilt)
+- Automatic scaling of frequencies to Nyquist frequency</p>
+<h3 id="example-usage">Example Usage</h3>
+<pre><code class="language-python">import numpy as np
+from hdsemg_shared.filters.bandpass import bandpass_filter
+
+# Generate sample EMG data
+fs = 2000  # Sample rate: 2kHz
+t = np.linspace(0, 1, fs)  # 1 second of data
+emg = np.random.randn(fs)  # Simulated noise-like EMG
+
+# Apply bandpass filter (20-450 Hz, 4th order)
+filtered_emg = bandpass_filter(
+    data=emg,
+    order=4,
+    lowcut=20,    # Remove low-frequency drift
+    highcut=450,  # Remove high-frequency noise
+    fs=fs
+)
+</code></pre>
+<h3 id="best-practices">Best Practices</h3>
+<ol>
+<li><strong>Filter Order Selection</strong>:</li>
+<li>Start with order=4 for most applications</li>
+<li>Increase order if you need sharper cutoffs</li>
+<li>
+<p>Decrease order if you observe ringing artifacts</p>
+</li>
+<li>
+<p><strong>Frequency Selection</strong>:</p>
+</li>
+<li>For surface EMG: lowcut=20Hz, highcut=450Hz is typical</li>
+<li>Adjust based on your specific application and noise conditions</li>
+<li>
+<p>Ensure highcut &lt; fs/2 (Nyquist frequency)</p>
+</li>
+<li>
+<p><strong>Edge Effects</strong>:</p>
+</li>
+<li>The filter may introduce edge effects at the start/end of the signal</li>
+<li>Consider padding your signal or discarding edge regions in critical analyses</li>
+</ol>
+<h3 id="common-use-cases">Common Use Cases</h3>
+<ul>
+<li>Removing power line interference and baseline drift</li>
+<li>Isolating the main EMG frequency band (20-450 Hz)</li>
+<li>Pre-processing before amplitude analysis or feature extraction</li>
+</ul>
+<h2 id="future-extensions">Future Extensions</h2>
+<p>The filters package is designed to be extensible. Planned or possible additions include:</p>
+<ul>
+<li>Notch filters for power line interference</li>
+<li>Adaptive filters for specific noise types</li>
+<li>Wavelet-based filtering approaches</li>
+<li>Multi-channel filtering utilities</li>
+</ul>
+<h2 id="source-code">Source Code</h2>
+<blockquote>
+<p>The implementation can be found in <code>src/hdsemg_shared/filters/bandpass.py</code>. </p>
+</blockquote>
+<h2 id="api-dokumentation">API Dokumentation</h2>
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.filters.bandpass"></a>
+    <div class="doc doc-contents first">
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.bandpass.bandpass_filter" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>Exact Python replica of Ton van den Bogert's MATLAB <code>bandpassfilter</code>.
+@credit Ton van den Bogert, https://biomch-l.isbweb.org/archive/index.php/t-26625.html</p>
+<hr />
+<h5 id="hdsemg_shared.filters.bandpass.bandpass_filter--parameters">Parameters</h5>
+<p>data : 1-D ndarray
+    Signal to be filtered.
+N : int
+    <em>Total</em> filter order requested by the user (must be even).
+    Internally the Butterworth prototype is designed with order N/2 and then
+    applied forwards &amp; backwards (filtfilt) which doubles the effective order.
+fcl, fch : float
+    Lower and higher cut-off frequencies [Hz].
+fs : float
+    Sampling frequency [Hz].</p>
+<h5 id="hdsemg_shared.filters.bandpass.bandpass_filter--returns">Returns</h5>
+<p>fdata : ndarray
+    Zero-phase band-pass filtered signal (same length as <code>data</code>).</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/bandpass.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                    <span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                    <span class="n">fcl</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                    <span class="n">fch</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                    <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exact Python replica of Ton van den Bogert&#39;s MATLAB `bandpassfilter`.</span>
+<span class="sd">    @credit Ton van den Bogert, https://biomch-l.isbweb.org/archive/index.php/t-26625.html</span>
+
+<span class="sd">    -------------------------------------------------------------------</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    data : 1-D ndarray</span>
+<span class="sd">        Signal to be filtered.</span>
+<span class="sd">    N : int</span>
+<span class="sd">        *Total* filter order requested by the user (must be even).</span>
+<span class="sd">        Internally the Butterworth prototype is designed with order N/2 and then</span>
+<span class="sd">        applied forwards &amp; backwards (filtfilt) which doubles the effective order.</span>
+<span class="sd">    fcl, fch : float</span>
+<span class="sd">        Lower and higher cut-off frequencies [Hz].</span>
+<span class="sd">    fs : float</span>
+<span class="sd">        Sampling frequency [Hz].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fdata : ndarray</span>
+<span class="sd">        Zero-phase band-pass filtered signal (same length as `data`).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># ------------- 1. argument checks  ----------</span>
+    <span class="k">if</span> <span class="n">N</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">N</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;N must be an even integer ≥ 2 (bi-directional filtering).&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fcl</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fch</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fcl</span> <span class="o">&gt;=</span> <span class="n">fch</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cut-off frequencies must satisfy 0 &lt; fcl &lt; fch &lt; fs/2.&quot;</span><span class="p">)</span>
+    <span class="c1"># ------------------------------------------------------------------------</span>
+
+    <span class="c1"># ------------- 2. translate MATLAB design rule --------------------------</span>
+    <span class="c1"># In Ton’s routine Wn is *pre-warped* so that after filtfilt()</span>
+    <span class="c1"># the –3 dB point sits exactly at the user’s fcl/fch.</span>
+    <span class="n">halfN</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="mi">2</span>  <span class="c1"># order actually given to butter()</span>
+    <span class="n">beta</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">))</span>  <span class="c1"># pre-warping constant</span>
+    <span class="n">Wn</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">]))</span> <span class="o">/</span> <span class="p">(</span><span class="n">fs</span> <span class="o">*</span> <span class="n">beta</span><span class="p">)</span>  <span class="c1"># normalised (0–1)</span>
+    <span class="n">Wn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">Wn</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)</span>  <span class="c1"># avoid numerical issues with very low frequencies</span>
+    <span class="c1"># ------------------------------------------------------------------------</span>
+
+    <span class="c1"># ------------- 3. design filter &amp; apply zero-phase ----------------------</span>
+    <span class="n">sos</span> <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="n">halfN</span><span class="p">,</span> <span class="n">Wn</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s1">&#39;sos&#39;</span><span class="p">)</span>  <span class="c1"># identical poles/zeros</span>
+    <span class="n">fdata</span> <span class="o">=</span> <span class="n">sosfiltfilt</span><span class="p">(</span><span class="n">sos</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># zero-phase (like filtfilt)</span>
+    <span class="k">return</span> <span class="n">fdata</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+
+        <div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
