@@ -8,7 +8,6 @@ nav:
       - fileio: usage/fileio.md
       - filters: usage/filters.md
       - preprocessing: usage/preprocessing.md
-      - grid: usage/grid.md
   - Contributing: contributing.md
 
 plugins:
