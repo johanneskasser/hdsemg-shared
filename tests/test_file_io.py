@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from hdsemg_shared.fileio.file_io import load_file
+from hdsemg_shared.fileio.file_io import EMGFile
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -25,22 +25,22 @@ def test_load_file_structure(path):
     """
     Test that the loaded file has the correct structure.
     """
-    data, time, description, sampling_frequency, file_name, file_size = load_file(path)
+    emg = EMGFile.load(path)
 
     # Check data shape
-    assert data.ndim == 2, "Data should be a 2D array."
-    assert time.ndim == 1, "Time should be a 1D array."
+    assert emg.data.ndim == 2, "Data should be a 2D array."
+    assert emg.time.ndim == 1, "Time should be a 1D array."
 
     # Check that data and time have compatible shapes
-    assert data.shape[0] == time.shape[0], "Data and time must have the same number of samples."
+    assert emg.data.shape[0] == emg.time.shape[0], "Data and time must have the same number of samples."
 
-    assert isinstance(extract_str(description), str), "Description should a array of strings."
+    assert isinstance(extract_str(emg.description), str), "Description should a array of strings."
 
     # Check sampling frequency is a number
-    assert isinstance(sampling_frequency, (int, float)), "Sampling frequency should be a number."
+    assert isinstance(emg.sampling_frequency, (int, float)), "Sampling frequency should be a number."
 
     # Check file name is a string
-    assert isinstance(file_name, str), "File name should be a string."
+    assert isinstance(emg.file_name, str), "File name should be a string."
 
     # Check file size is an integer
-    assert isinstance(file_size, int), "File size should be an integer."
+    assert isinstance(emg.file_size, int), "File size should be an integer."

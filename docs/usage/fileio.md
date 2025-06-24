@@ -1,99 +1,151 @@
-# File I/O
+# File I/O & Grid Extraction
 
-The `fileio` module in `hdsemg-shared` provides unified, high-level functions for loading and saving high-density surface EMG (HD-sEMG) data from various file formats. It abstracts away the details of different vendor formats and provides a consistent interface for downstream processing.
+The **`hdsemg_shared.fileio`** module provides a interface to:
 
----
-
-## Supported File Types
-
-- **MATLAB files** (`.mat`):
-  - Loads data, time, description, and sampling frequency from MATLAB files.
-- **OTB+ / OTB files** (`.otb+`, `.otb`):
-  - Handles OTB+ archives, including extraction, XML parsing, and signal scaling.
-- **OTB4 files** (`.otb4`):
-  - Supports OTB4 archives, including multi-track and device-specific handling.
+* Load HD-sEMG data from MATLAB (`.mat`), OTB+ (`.otb+`, `.otb`) or OTB4 (`.otb4`) files
+* Automatically sanitize and reshape the data/time arrays
+* Extract electrode‐grid metadata (rows, columns, IED, reference channels, etc.)
+* Cache remote grid‐configuration JSON for one week
+* Save back to `.mat` if needed
 
 ---
 
-## Main API: `load_file`
+## Core Types
+
+### `EMGFile`
 
 ```python
-from hdsemg_shared.fileio import load_file
-
-data, time, description, sampling_frequency, file_name, file_size = load_file(filepath)
+from hdsemg_shared.fileio.file_io import EMGFile
 ```
 
-- **`filepath`**: Path to the file to load (supports `.mat`, `.otb+`, `.otb`, `.otb4`).
-- **Returns**: Tuple with data, time, description, sampling frequency, file name, and file size.
+A single class that bundles:
 
-The function automatically detects the file type and dispatches to the appropriate loader.
+* Raw data & time vectors
+* Channel descriptions
+* Sampling frequency, file name, file size, file type
+* Electrode‐grid metadata via the `.grids` property
 
----
-
-## Data Structure
-
-- **data**: `np.ndarray` (nSamples x nChannels), always returned as float for further processing.
-- **time**: `np.ndarray` (nSamples,), time vector.
-- **description**: Channel descriptions (array or list).
-- **sampling_frequency**: Sampling frequency in Hz.
-- **file_name**: Name of the loaded file.
-- **file_size**: File size in bytes.
-
----
-
-## Example Usage
+#### Loading
 
 ```python
-from hdsemg_shared.fileio import load_file
-
-# Load any supported file
-file_path = "my_emg_data.otb+"
-data, time, description, fs, fname, fsize = load_file(file_path)
-
-print(f"Loaded {fname} with shape {data.shape} and fs={fs} Hz")
+emg = EMGFile.load("session1.mat")
 ```
 
----
+* **`load(filepath: str) -> EMGFile`**
+  Detects the extension and dispatches to the appropriate loader
+  (`.mat` → `MatFileIO.load`, `.otb+`/`.otb` → `otb_plus_file_io`,
+  `.otb4` → `otb_4_file_io`), then sanitizes and returns an `EMGFile`.
 
-## Internal Structure
-
-- The `fileio` module delegates to specialized loaders:
-  - `matlab_file_io.py` for `.mat` files
-  - `otb_plus_file_io.py` for `.otb+` and `.otb` files
-  - `otb_4_file_io.py` for `.otb4` files
-- All loaders ensure data is returned in a consistent format and shape.
-- Data is always converted to float for compatibility with downstream processing.
-
----
-
-## Error Handling
-
-- Raises `ValueError` for unsupported file types.
-- Raises errors if file content is incompatible or missing required fields.
-
----
-
-## Saving Data
-
-Saving to `.mat` files is supported via:
+#### Attributes
 
 ```python
-from hdsemg_shared.fileio.matlab_file_io import save_selection_to_mat
+emg.data               # np.ndarray, shape (nSamples × nChannels), float32
+emg.time               # np.ndarray, shape (nSamples,)
+emg.description        # list or array of channel‐description strings
+emg.sampling_frequency # float
+emg.file_name          # str
+emg.file_size          # int (bytes)
+emg.file_type          # "mat" | "otb" | "otb4"
+emg.channel_count      # int, number of channels (= data.shape[1])
+```
 
-save_selection_to_mat(save_file_path, data, time, description, sampling_frequency, file_name, grid_info)
+#### Grid Metadata
+
+```python
+from hdsemg_shared.fileio.file_io import Grid
+
+grids: list[Grid] = emg.grids
+```
+
+* **`.grids`** (lazy‐loaded): a list of `Grid` objects (one per detected grid in the file).
+* **`.get_grid(grid_key=…)`** or **`.get_grid(grid_uid=…)`**: retrieve a single `Grid` by its key (e.g. `"8x4"`) or UUID.
+
+##### `Grid` dataclass
+
+```python
+@dataclass
+class Grid:
+    emg_indices: list[int]         # indices of EMG channels in data/time
+    ref_indices: list[int]         # indices of reference channels
+    rows: int                      # number of rows on the grid
+    cols: int                      # number of columns on the grid
+    ied_mm: int                    # inter‐electrode distance in millimeters
+    electrodes: int                # total electrodes (rows × cols or remote lookup)
+    grid_key: str                  # e.g. "8x4"
+    grid_uid: str                  # unique UUID string
+    requested_path_idx: int | None # index of “requested path” entry in description
+    performed_path_idx: int | None # index of “performed path” entry in description
+```
+
+#### Saving
+
+```python
+emg.save("subset.mat")
+```
+
+* **`.save(save_path: str) -> None`**
+  Currently only supports saving to `.mat` via `MatFileIO.save`.
+  Raises `ValueError` for any other extension.
+
+#### Utility
+
+```python
+emg.copy()
+```
+
+* **`.copy() -> EMGFile`**
+  Returns a deep copy of the entire `EMGFile` (data, metadata, grids).
+
+---
+
+## Low-Level MATLAB I/O
+
+```python
+from hdsemg_shared.fileio.matlab_file_io import MatFileIO
+```
+
+* **`MatFileIO.load(file_path: str) -> tuple`**
+  Loads a `.mat` and returns exactly
+  `(data, time, description, sampling_frequency, file_name, file_size)`.
+
+* **`MatFileIO.save(save_path: str, data, time, description, sampling_frequency)`**
+  Saves the provided arrays/metadata to a `.mat` file.
+
+---
+
+## Under the Hood
+
+* **Format dispatch** in `EMGFile.load`:
+
+  * MATLAB (`.mat`) → `MatFileIO.load`
+  * OTB+ / OTB (`.otb+`, `.otb`) → `otb_plus_file_io.load_otb_file`
+  * OTB4 (`.otb4`) → `otb_4_file_io.load_otb4_file`
+* **Sanitization**: ensures `data` is 2-D (samples × channels) and `time` is 1-D, swapping axes if needed.
+* **Grid JSON cache**: fetched from Google Drive once per week, stored in `~/.hdsemg_cache/`.
+
+---
+
+## Quick Example
+
+```python
+# Load and inspect
+emg = EMGFile.load("myrecording.otb+")
+print(emg.data.shape, emg.sampling_frequency)
+
+# List grids
+for grid in emg.grids:
+    print(f"{grid.grid_key}: {len(grid.emg_indices)} EMG, {len(grid.ref_indices)} refs")
+
+# Find a specific grid
+g2x8 = emg.get_grid(grid_key="2x8")
+
+# Save a selection back to .mat
+emg.save("selected_subset.mat")
 ```
 
 ---
-
-> For more details, see the API documentation or the source code in `src/hdsemg_shared/fileio/`.
-
----
-
 ## API Documentation
-
-::: hdsemg_shared.fileio
+::: hdsemg_shared.fileio.file_io
     handler: python
     options:
       heading_level: 3
-
-
