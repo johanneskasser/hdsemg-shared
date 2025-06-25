@@ -372,10 +372,27 @@ EMGFile        </code>
         <span class="n">grid_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_grid_data</span><span class="p">()</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">entry_text</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+            <span class="c1"># Handle NumPy arrays</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">entry_text</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>  <span class="c1"># recurse into the item</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>  <span class="c1"># fallback</span>
+
+            <span class="c1"># Handle bytes</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">UnicodeDecodeError</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;latin1&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Handle regular string</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">e</span>
+
+            <span class="c1"># Fallback for anything else</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># often used in nested arrays from .mat</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                 <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
 
