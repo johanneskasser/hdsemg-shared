@@ -107,10 +107,27 @@ class EMGFile:
         grid_data = self._load_grid_data()
 
         def entry_text(e):
+            # Handle NumPy arrays
+            if isinstance(e, np.ndarray):
+                if e.size == 1:
+                    return entry_text(e.item())  # recurse into the item
+                else:
+                    return str(e)  # fallback
+
+            # Handle bytes
+            if isinstance(e, bytes):
+                try:
+                    return e.decode("utf-8")
+                except UnicodeDecodeError:
+                    return e.decode("latin1")
+
+            # Handle regular string
             if isinstance(e, str):
                 return e
+
+            # Fallback for anything else
             try:
-                return e[0][0]
+                return str(e[0][0])  # often used in nested arrays from .mat
             except Exception:
                 return str(e)
 
