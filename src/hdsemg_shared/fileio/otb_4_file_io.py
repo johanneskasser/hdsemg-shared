@@ -96,9 +96,18 @@ def load_otb4_file(file_path):
     total_channels = sum(tr["NumberOfChannels"] for tr in track_info_list)
     logger.debug(f"Total channels from tracks: {total_channels}")
 
+    # Log grid information summary
+    grids_with_info = [tr for tr in track_info_list if tr.get("GridInfo")]
+    logger.debug(f"Tracks with GridInfo: {len(grids_with_info)}/{len(track_info_list)}")
+    for tr in grids_with_info:
+        gi = tr["GridInfo"]
+        logger.debug(f"  {tr['Device']} - {tr['SubTitle']}: {gi['Name']} ({gi['NRow']}x{gi['NColumn']}, IED={gi['IED']}mm)")
+
     if device == "Novecento+":
+        logger.debug("Using Novecento+ reader")
         data, descriptions, fs_main = read_novecento_plus(signals, track_info_list)
     else:
+        logger.debug("Using standard OTB4 reader")
         data, descriptions, fs_main = read_standard_otb4(signals, track_info_list)
 
     description_array = np.array(
@@ -141,18 +150,28 @@ def parse_otb4_tracks_xml(xml_file):
           "NumberOfChannels": ...,
           "AcquisitionChannel": ...,
           "SubTitle": ...   # <-- Grid identifier
+          "GridInfo": {      # <-- Grid metadata from Description element
+              "Name": "HD08MM1305",
+              "NRow": 5,
+              "NColumn": 13,
+              "IED": 8
+          } or None
         }, ... ]
     """
+    logger.debug(f"Parsing OTB4 XML file: {xml_file}")
     tree = ET.parse(xml_file)
     track_info_parent = tree.getroot()
 
     if track_info_parent is None:
+        logger.warning("XML root is None, returning empty track list")
         return []
 
     # Finde die <TrackInfo>-Elemente
     track_info_elems = track_info_parent.findall("TrackInfo")
+    logger.debug(f"Found {len(track_info_elems)} TrackInfo elements in XML")
     results = []
-    for tr_el in track_info_elems:
+    for idx, tr_el in enumerate(track_info_elems):
+        logger.debug(f"Processing TrackInfo #{idx}")
         device_str = _get_text_save(tr_el, "Device", default="Unknown", do_strip= True)
         gain_str = _get_text_save(tr_el, "Gain", default="1", do_strip= False)
         bits_str = _get_text_save(tr_el, "ADC_Nbits", default="16", do_strip= False)
@@ -171,7 +190,39 @@ def parse_otb4_tracks_xml(xml_file):
         nchan_val = int(nchan_str)
         acq_val = int(acq_str)
 
-        results.append({
+        logger.debug(f"  Device: {device_str}, SubTitle: {subtitle_str}, Channels: {nchan_val}, Path: {path_str}")
+
+        # Extract grid information from Description element if present
+        grid_info = None
+        desc_el = tr_el.find("Description")
+        if desc_el is not None:
+            logger.debug(f"  Found Description element for TrackInfo #{idx}")
+            grid_name = _get_text_save(desc_el, "Name", default="", do_strip=True)
+            nrow_str = _get_text_save(desc_el, "NRow", default="", do_strip=False)
+            ncol_str = _get_text_save(desc_el, "NColumn", default="", do_strip=False)
+            ied_str = _get_text_save(desc_el, "IED", default="", do_strip=False)
+
+            logger.debug(f"    Name: {grid_name!r}, NRow: {nrow_str!r}, NColumn: {ncol_str!r}, IED: {ied_str!r}")
+
+            # Only create grid_info if we have valid grid data
+            if grid_name and nrow_str and ncol_str and ied_str:
+                try:
+                    grid_info = {
+                        "Name": grid_name,
+                        "NRow": int(nrow_str),
+                        "NColumn": int(ncol_str),
+                        "IED": int(ied_str)
+                    }
+                    logger.debug(f"    Created GridInfo: {grid_info}")
+                except ValueError as e:
+                    logger.warning(f"    Failed to parse grid dimensions: {e}")
+                    grid_info = None
+            else:
+                logger.debug(f"    Incomplete grid data, skipping GridInfo creation")
+        else:
+            logger.debug(f"  No Description element found for TrackInfo #{idx}")
+
+        track_dict = {
             "Device": device_str,
             "Gain": gain_val,
             "ADC_Nbits": bits_val,
@@ -180,9 +231,13 @@ def parse_otb4_tracks_xml(xml_file):
             "SignalStreamPath": path_str,
             "NumberOfChannels": nchan_val,
             "AcquisitionChannel": acq_val,
-            "SubTitle": subtitle_str  # Grid identifier
-        })
+            "SubTitle": subtitle_str,  # Grid identifier
+            "GridInfo": grid_info      # Grid metadata
+        }
+        results.append(track_dict)
+        logger.debug(f"  Added track to results list (total: {len(results)})")
 
+    logger.info(f"Parsed {len(results)} tracks from XML, {sum(1 for r in results if r['GridInfo'] is not None)} with grid info")
     return results
 
 def _get_text_save(parent, tag, default="", do_strip=True, requred_none_null=False):
@@ -212,63 +267,92 @@ def read_novecento_plus(signals, track_info_list):
     For demonstration, we assume each .sig is separate chunk of channels.
     """
     logger.debug("read_novecento_plus routine")
+    logger.debug(f"Processing {len(signals)} signal files with {len(track_info_list)} tracks")
+
     # We'll create a big list of channel blocks
     data_blocks = []
     descriptions = []
     fs_main = None
 
-    for sig_path in signals:
+    for sig_idx, sig_path in enumerate(signals):
+        logger.debug(f"Processing signal file #{sig_idx}: {os.path.basename(sig_path)}")
+
         # find track that references this sig file
         matched_track = None
-        for tr in track_info_list:
+        for tr_idx, tr in enumerate(track_info_list):
             if tr["SignalStreamPath"] == os.path.basename(sig_path):
                 matched_track = tr
+                logger.debug(f"  Matched with track #{tr_idx}: {tr['Device']} - {tr['SubTitle']}")
                 break
         if matched_track is None:
-            # skip
+            logger.warning(f"  No matching track found for signal file {os.path.basename(sig_path)}, skipping")
             continue
 
         n_ch = matched_track["NumberOfChannels"]
+        logger.debug(f"  Reading {n_ch} channels from signal file")
+
         # read raw as int32
         raw = np.fromfile(sig_path, dtype=np.int32)
         samples = raw.size // n_ch
         raw = raw[:samples * n_ch]
         block = raw.reshape((n_ch, samples), order='F')
+        logger.debug(f"  Raw data shape: {block.shape} (channels x samples)")
 
         # scale
         # data(Ch,:)=data(Ch,:)*Psup/(2^ADbit)*1000/Gain
         conv = matched_track["ADC_Range"] / (2 ** matched_track["ADC_Nbits"]) * 1000 / matched_track["Gain"]
         block = block.astype(np.float64) * conv
+        logger.debug(f"  Applied conversion factor: {conv:.6f}")
 
         data_blocks.append(block)
 
         # keep track of fs
         if fs_main is None:
             fs_main = matched_track["SamplingFrequency"]
+            logger.debug(f"  Set sampling frequency: {fs_main} Hz")
         else:
             # if you want to check consistency:
             if abs(fs_main - matched_track["SamplingFrequency"]) > 1e-9:
-                logger.warning("Inconsistent sampling freq among tracks?")
+                logger.warning(f"  Inconsistent sampling freq: expected {fs_main}, got {matched_track['SamplingFrequency']}")
 
-        # build placeholder descriptions:
-        # e.g. "Novecento+ <SignalStreamPath> channel x"
+        # build descriptions with grid information if available
+        grid_info = matched_track.get("GridInfo")
+        if grid_info:
+            logger.debug(f"  Using GridInfo for descriptions: {grid_info['Name']} ({grid_info['NRow']}x{grid_info['NColumn']}, IED={grid_info['IED']}mm)")
+        else:
+            logger.debug(f"  No GridInfo available, using fallback description format")
+
         for c in range(n_ch):
             dev = matched_track['Device']
             sig = matched_track['SignalStreamPath']
             grid_id = matched_track.get("SubTitle", "Unknown")
-            desc = f"{dev}-{sig}-{grid_id}-ch{c}"
+
+            # If grid info is available, format description to match expected pattern
+            if grid_info:
+                # Format: HD{IED}MM{rows:02d}{cols:02d}
+                ied = grid_info["IED"]
+                rows = grid_info["NRow"]
+                cols = grid_info["NColumn"]
+                grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                desc = f"{dev} {grid_pattern} ch{c+1}"
+            else:
+                desc = f"{dev}-{sig}-{grid_id}-ch{c}"
             descriptions.append(desc)
+
+        logger.debug(f"  Generated {n_ch} channel descriptions (total so far: {len(descriptions)})")
 
     lens = [b.shape[1] for b in data_blocks]
     if not all(l == lens[0] for l in lens):
         # mismatch sample counts => handle or raise
-        logger.warning("Different sample lengths among signals. We'll pick min length.")
+        logger.warning(f"Different sample lengths among signals: {lens}. Picking min length.")
         min_len = min(lens)
         for i in range(len(data_blocks)):
             data_blocks[i] = data_blocks[i][:, :min_len]
+        logger.debug(f"Trimmed all blocks to {min_len} samples")
 
     # vstack them
     final_data = np.vstack(data_blocks) if data_blocks else np.zeros((0, 0))
+    logger.info(f"read_novecento_plus: Final data shape: {final_data.shape}, {len(descriptions)} descriptions, fs={fs_main or 2000} Hz")
     return final_data, descriptions, fs_main or 2000
 
 
@@ -278,17 +362,24 @@ def read_standard_otb4(signals, track_info_list):
     then apply Gains for each track in partial channel intervals.
     """
     logger.debug("read_standard_otb4 routine")
+    logger.debug(f"Processing {len(signals)} signal files with {len(track_info_list)} tracks")
 
     if not signals:
+        logger.warning("No signal files provided, returning empty data")
         return np.zeros((0, 0)), [], 2000.0
 
     sig_path = signals[0]  # the .m code uses the first .sig
+    logger.debug(f"Reading from signal file: {os.path.basename(sig_path)}")
+
     # sum up totalCh
     totalCh = sum(tr["NumberOfChannels"] for tr in track_info_list)
+    logger.debug(f"Total channels across all tracks: {totalCh}")
+
     # read 'short' => int16
     raw = np.fromfile(sig_path, dtype=np.int16)
     expected_channels = totalCh
     n_values = raw.size
+    logger.debug(f"Read {n_values} int16 values from file")
 
     if n_values % expected_channels != 0:
         logger.error(f"Raw data length {n_values} is not divisible by {expected_channels} channels")
@@ -296,13 +387,14 @@ def read_standard_otb4(signals, track_info_list):
 
     samples = n_values // expected_channels
     data_2d = raw[:samples * expected_channels].reshape((expected_channels, samples), order='F').astype(np.float64)
+    logger.debug(f"Reshaped data to: {data_2d.shape} (channels x samples)")
 
     indexes = []
     running_sum = 0
     for tr in track_info_list:
         running_sum += tr["NumberOfChannels"]
         indexes.append(running_sum)
-
+    logger.debug(f"Channel index boundaries: {indexes}")
 
     start_idx = 0
     for i, trackinfo in enumerate(track_info_list):
@@ -311,23 +403,44 @@ def read_standard_otb4(signals, track_info_list):
         nbits = trackinfo["ADC_Nbits"]
         gainv = trackinfo["Gain"]
         conv = psup / (2 ** nbits) * 1000.0 / gainv
+        logger.debug(f"Track #{i} ({trackinfo['Device']} - {trackinfo['SubTitle']}): channels {start_idx}:{end_idx}, conv={conv:.6f}")
         for ch in range(start_idx, end_idx):
             data_2d[ch, :] *= conv
         start_idx = end_idx
 
-    # build description strings
+    # build description strings with grid information if available
     descriptions = []
-    for tr in track_info_list:
+    desc_idx = 0
+    for tr_idx, tr in enumerate(track_info_list):
         dev = tr["Device"]
         path = tr["SignalStreamPath"]
         grid_id = tr.get("SubTitle", "Unknown")
         nchan = tr["NumberOfChannels"]
+        grid_info = tr.get("GridInfo")
+
+        if grid_info:
+            logger.debug(f"Track #{tr_idx}: Using GridInfo for {nchan} channels: {grid_info['Name']} ({grid_info['NRow']}x{grid_info['NColumn']}, IED={grid_info['IED']}mm)")
+        else:
+            logger.debug(f"Track #{tr_idx}: No GridInfo, using fallback for {nchan} channels")
+
         for c in range(nchan):
-            desc = f"{dev}-{path}-{grid_id}-ch{c}"
+            # If grid info is available, format description to match expected pattern
+            if grid_info:
+                # Format: HD{IED}MM{rows:02d}{cols:02d}
+                ied = grid_info["IED"]
+                rows = grid_info["NRow"]
+                cols = grid_info["NColumn"]
+                grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                desc = f"{dev} {grid_pattern} ch{c+1}"
+            else:
+                desc = f"{dev}-{path}-{grid_id}-ch{c}"
             descriptions.append(desc)
+            desc_idx += 1
+
+        logger.debug(f"  Generated {nchan} descriptions (total so far: {desc_idx})")
 
     # the .m code picks the sample freq from e.g. Fsample{nSig}, presumably from the first track
     fs_main = track_info_list[0]["SamplingFrequency"] if track_info_list else 2000.0
 
-
+    logger.info(f"read_standard_otb4: Final data shape: {data_2d.shape}, {len(descriptions)} descriptions, fs={fs_main} Hz")
     return data_2d, descriptions, fs_main
