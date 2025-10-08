@@ -181,6 +181,8 @@ def parse_otb4_tracks_xml(xml_file):
         nchan_str = _get_text_save(tr_el, "NumberOfChannels", default="0", do_strip= False)
         acq_str = _get_text_save(tr_el, "AcquisitionChannel", default="0", do_strip= False)
         subtitle_str = _get_text_save(tr_el, "SubTitle", default="Unknown", do_strip= True)
+        is_control_str = _get_text_save(tr_el, "IsControl", default="false", do_strip= True)
+        chan_offset_str = _get_text_save(tr_el, "ChannelOffsetInSubPacket", default="0", do_strip= False)
 
         # Konvertierungen
         gain_val = float(gain_str)
@@ -189,8 +191,10 @@ def parse_otb4_tracks_xml(xml_file):
         fs_val = float(fs_str)
         nchan_val = int(nchan_str)
         acq_val = int(acq_str)
+        is_control_val = is_control_str.lower() == "true"
+        chan_offset_val = int(chan_offset_str)
 
-        logger.debug(f"  Device: {device_str}, SubTitle: {subtitle_str}, Channels: {nchan_val}, Path: {path_str}")
+        logger.debug(f"  Device: {device_str}, SubTitle: {subtitle_str}, Channels: {nchan_val}, Path: {path_str}, IsControl: {is_control_val}, Offset: {chan_offset_val}")
 
         # Extract grid information from Description element if present
         grid_info = None
@@ -232,7 +236,9 @@ def parse_otb4_tracks_xml(xml_file):
             "NumberOfChannels": nchan_val,
             "AcquisitionChannel": acq_val,
             "SubTitle": subtitle_str,  # Grid identifier
-            "GridInfo": grid_info      # Grid metadata
+            "GridInfo": grid_info,     # Grid metadata
+            "IsControl": is_control_val,  # Whether this is a control/reference signal
+            "ChannelOffset": chan_offset_val  # Offset within signal file
         }
         results.append(track_dict)
         logger.debug(f"  Added track to results list (total: {len(results)})")
@@ -261,13 +267,31 @@ def _get_text_save(parent, tag, default="", do_strip=True, requred_none_null=Fal
 
 def read_novecento_plus(signals, track_info_list):
     """
-    For the 'Novecento+' device, the .m code loops multiple signals,
-    tries to match Path, sets Gains, etc., and reads data as 'int32'.
-    We'll unify them and return final (data, descriptions, fs).
-    For demonstration, we assume each .sig is separate chunk of channels.
+    For the 'Novecento+' device, reads data from signal files using int32 format.
+    Handles multiple tracks per signal file using ChannelOffset to extract correct channels.
+    Returns final (data, descriptions, fs).
     """
     logger.debug("read_novecento_plus routine")
     logger.debug(f"Processing {len(signals)} signal files with {len(track_info_list)} tracks")
+
+    # First pass: identify valid EMG grids (not control signals)
+    # We'll use the last valid EMG grid pattern for control signals
+    last_valid_grid_pattern = None
+    for tr in track_info_list:
+        grid_info = tr.get("GridInfo")
+        is_control = tr.get("IsControl", False)
+
+        # Valid EMG grid: has GridInfo, not a control signal, IED > 1, and > 4 electrodes
+        if grid_info and not is_control:
+            ied = grid_info.get("IED", 1)
+            rows = grid_info.get("NRow", 1)
+            cols = grid_info.get("NColumn", 1)
+            electrodes = rows * cols
+
+            # Only use grids with IED > 1 or many electrodes (real EMG grids)
+            if ied > 1 or electrodes > 4:
+                last_valid_grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                logger.debug(f"Found valid EMG grid pattern: {last_valid_grid_pattern}")
 
     # We'll create a big list of channel blocks
     data_blocks = []
@@ -277,69 +301,106 @@ def read_novecento_plus(signals, track_info_list):
     for sig_idx, sig_path in enumerate(signals):
         logger.debug(f"Processing signal file #{sig_idx}: {os.path.basename(sig_path)}")
 
-        # find track that references this sig file
-        matched_track = None
+        # Find ALL tracks that reference this signal file
+        matched_tracks = []
         for tr_idx, tr in enumerate(track_info_list):
             if tr["SignalStreamPath"] == os.path.basename(sig_path):
-                matched_track = tr
-                logger.debug(f"  Matched with track #{tr_idx}: {tr['Device']} - {tr['SubTitle']}")
-                break
-        if matched_track is None:
-            logger.warning(f"  No matching track found for signal file {os.path.basename(sig_path)}, skipping")
+                matched_tracks.append((tr_idx, tr))
+
+        if not matched_tracks:
+            logger.warning(f"  No matching tracks found for signal file {os.path.basename(sig_path)}, skipping")
             continue
 
-        n_ch = matched_track["NumberOfChannels"]
-        logger.debug(f"  Reading {n_ch} channels from signal file")
+        logger.debug(f"  Found {len(matched_tracks)} tracks using this signal file")
 
-        # read raw as int32
+        # Calculate total channels in this file to determine file size
+        total_channels = sum(tr["NumberOfChannels"] for _, tr in matched_tracks)
+        logger.debug(f"  Total channels in file: {total_channels}")
+
+        # Read entire signal file as int32
         raw = np.fromfile(sig_path, dtype=np.int32)
-        samples = raw.size // n_ch
-        raw = raw[:samples * n_ch]
-        block = raw.reshape((n_ch, samples), order='F')
-        logger.debug(f"  Raw data shape: {block.shape} (channels x samples)")
+        samples = raw.size // total_channels
+        if raw.size % total_channels != 0:
+            logger.warning(f"  File size mismatch: {raw.size} values not divisible by {total_channels} channels")
+            # Trim to nearest complete sample
+            raw = raw[:samples * total_channels]
 
-        # scale
-        # data(Ch,:)=data(Ch,:)*Psup/(2^ADbit)*1000/Gain
-        conv = matched_track["ADC_Range"] / (2 ** matched_track["ADC_Nbits"]) * 1000 / matched_track["Gain"]
-        block = block.astype(np.float64) * conv
-        logger.debug(f"  Applied conversion factor: {conv:.6f}")
+        logger.debug(f"  Read {raw.size} int32 values, {samples} samples × {total_channels} channels")
 
-        data_blocks.append(block)
+        # Reshape to (total_channels, samples) using Fortran order
+        all_data = raw.reshape((total_channels, samples), order='F')
+        logger.debug(f"  Reshaped data: {all_data.shape} (channels × samples)")
 
-        # keep track of fs
-        if fs_main is None:
-            fs_main = matched_track["SamplingFrequency"]
-            logger.debug(f"  Set sampling frequency: {fs_main} Hz")
-        else:
-            # if you want to check consistency:
-            if abs(fs_main - matched_track["SamplingFrequency"]) > 1e-9:
-                logger.warning(f"  Inconsistent sampling freq: expected {fs_main}, got {matched_track['SamplingFrequency']}")
+        # Process each track that uses this signal file
+        for tr_idx, matched_track in matched_tracks:
+            n_ch = matched_track["NumberOfChannels"]
+            offset = matched_track["ChannelOffset"]
+            is_control = matched_track["IsControl"]
 
-        # build descriptions with grid information if available
-        grid_info = matched_track.get("GridInfo")
-        if grid_info:
-            logger.debug(f"  Using GridInfo for descriptions: {grid_info['Name']} ({grid_info['NRow']}x{grid_info['NColumn']}, IED={grid_info['IED']}mm)")
-        else:
-            logger.debug(f"  No GridInfo available, using fallback description format")
+            logger.debug(f"  Processing track #{tr_idx}: {matched_track['Device']} - {matched_track['SubTitle']}")
+            logger.debug(f"    Channels: {n_ch}, Offset: {offset}, IsControl: {is_control}")
 
-        for c in range(n_ch):
-            dev = matched_track['Device']
-            sig = matched_track['SignalStreamPath']
-            grid_id = matched_track.get("SubTitle", "Unknown")
+            # Extract channels for this track using offset
+            if offset + n_ch > total_channels:
+                logger.error(f"    Channel offset {offset} + {n_ch} exceeds total channels {total_channels}")
+                continue
 
-            # If grid info is available, format description to match expected pattern
-            if grid_info:
-                # Format: HD{IED}MM{rows:02d}{cols:02d}
-                ied = grid_info["IED"]
-                rows = grid_info["NRow"]
-                cols = grid_info["NColumn"]
-                grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
-                desc = f"{dev} {grid_pattern} ch{c+1}"
+            block = all_data[offset:offset + n_ch, :]
+            logger.debug(f"    Extracted block shape: {block.shape}")
+
+            # Apply gain/scaling conversion
+            conv = matched_track["ADC_Range"] / (2 ** matched_track["ADC_Nbits"]) * 1000 / matched_track["Gain"]
+            block = block.astype(np.float64) * conv
+            logger.debug(f"    Applied conversion factor: {conv:.6f}")
+
+            data_blocks.append(block)
+
+            # Track sampling frequency
+            if fs_main is None:
+                fs_main = matched_track["SamplingFrequency"]
+                logger.debug(f"    Set sampling frequency: {fs_main} Hz")
             else:
-                desc = f"{dev}-{sig}-{grid_id}-ch{c}"
-            descriptions.append(desc)
+                if abs(fs_main - matched_track["SamplingFrequency"]) > 1e-9:
+                    logger.warning(f"    Inconsistent sampling freq: expected {fs_main}, got {matched_track['SamplingFrequency']}")
 
-        logger.debug(f"  Generated {n_ch} channel descriptions (total so far: {len(descriptions)})")
+            # Build descriptions with grid information
+            grid_info = matched_track.get("GridInfo")
+            if grid_info:
+                logger.debug(f"    Using GridInfo: {grid_info['Name']} ({grid_info['NRow']}x{grid_info['NColumn']}, IED={grid_info['IED']}mm)")
+            else:
+                logger.debug(f"    No GridInfo, using fallback description format")
+
+            for c in range(n_ch):
+                grid_id = matched_track.get("SubTitle", "Unknown")
+
+                # Determine which grid pattern to use
+                # IMPORTANT: REF channels should NOT have a grid pattern in their description
+                # so that file_io.py's grid parser adds them to refs instead of indices
+
+                if is_control:
+                    # Control signals: NO grid pattern, just REF marker
+                    desc = f"{grid_id} REF ch{c+1}"
+                elif grid_info:
+                    # Check if this is a valid EMG grid or a control grid
+                    ied = grid_info["IED"]
+                    rows = grid_info["NRow"]
+                    cols = grid_info["NColumn"]
+                    electrodes = rows * cols
+
+                    if ied == 1 and electrodes <= 4:
+                        # Small control grid (quaternions, etc): NO pattern, just REF
+                        desc = f"{grid_id} REF ch{c+1}"
+                    else:
+                        # Valid EMG grid: use its own pattern (no REF marker)
+                        grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                        desc = f"{grid_id} {grid_pattern} ch{c+1}"
+                else:
+                    # No grid info: just description without pattern
+                    desc = f"{grid_id} ch{c+1}"
+
+                descriptions.append(desc)
+
+            logger.debug(f"    Generated {n_ch} descriptions (total so far: {len(descriptions)})")
 
     lens = [b.shape[1] for b in data_blocks]
     if not all(l == lens[0] for l in lens):
