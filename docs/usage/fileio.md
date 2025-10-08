@@ -3,6 +3,7 @@
 The **`hdsemg_shared.fileio`** module provides a interface to:
 
 * Load HD-sEMG data from MATLAB (`.mat`), OTB+ (`.otb+`, `.otb`) or OTB4 (`.otb4`) files
+* Support for **Novecento+** device files with multi-track recordings and control signals
 * Automatically sanitize and reshape the data/time arrays
 * Extract electrode‐grid metadata (rows, columns, IED, reference channels, etc.)
 * Cache remote grid‐configuration JSON for one week
@@ -113,6 +114,78 @@ from hdsemg_shared.fileio.matlab_file_io import MatFileIO
 
 ---
 
+## Novecento+ Support
+
+The library fully supports **Novecento+** (OTBiolab) files in `.otb4` format. These files have unique characteristics:
+
+### Multi-Track Signal Files
+
+Novecento+ recordings store multiple data tracks in the same signal file (`.sig`), distinguished by:
+
+* **`ChannelOffsetInSubPacket`**: Starting position of each track's channels within the file
+* **`IsControl`**: Flag indicating control/reference signals (quaternions, buffer, ramp, etc.)
+* **Grid metadata** in XML `<Description>` elements (`<Name>`, `<NRow>`, `<NColumn>`, `<IED>`)
+
+### Grid Extraction
+
+The loader automatically:
+
+1. Parses grid information from `Tracks_000.xml` file
+2. Extracts **EMG channels** (channels with valid grid patterns like `HD08MM1305`)
+3. Identifies **reference channels** (control signals, quaternions, buffer, ramp)
+4. Assigns reference channels to the appropriate EMG grid based on their position in the file
+
+### Channel Organization
+
+For Novecento+ files, channels are organized as:
+
+* **EMG channels** (`emg_indices`): Main electrode grid signals with `HD{IED}MM{rows}{cols}` pattern
+* **Reference channels** (`ref_indices`): Control signals, quaternions, buffer, ramp, and auxiliary inputs marked with `REF` in descriptions
+
+### Example: Novecento+ File
+
+```python
+# Load Novecento+ OTB4 file
+emg = EMGFile.load("recording.otb4")
+
+# Main EMG grid (e.g., 5x13 = 65 electrodes, 64 active)
+main_grid = emg.grids[0]
+print(f"EMG Grid: {main_grid.rows}x{main_grid.cols}, IED={main_grid.ied_mm}mm")
+print(f"EMG channels: {len(main_grid.emg_indices)}")
+print(f"Reference channels: {len(main_grid.ref_indices)}")
+
+# Access EMG data only
+emg_data = emg.data[:, main_grid.emg_indices]
+
+# Access reference signals (quaternions, control signals, etc.)
+ref_data = emg.data[:, main_grid.ref_indices]
+
+# Check which channels are references
+for idx in main_grid.ref_indices:
+    desc = emg.description[idx]
+    print(f"Ref channel {idx}: {desc}")
+```
+
+### Supported Signal Types
+
+Novecento+ files may contain:
+
+* **HD-sEMG grids**: Main EMG electrode arrays (e.g., HD08MM1305, HD08MM0513)
+* **Quaternions**: IMU orientation data (4 channels, 2x2 layout)
+* **Buffer/Ramp**: Device control signals (1 channel each)
+* **AUX inputs**: Auxiliary analog inputs (16 channels, 2kHz)
+* **Control signals**: Additional device status channels (8 channels, 8kHz)
+* **Load cells**: Force/torque sensors (1+ channels)
+
+### Technical Details
+
+* **Data format**: int32 (Novecento+) converted to float64 with appropriate scaling
+* **Conversion**: `ADC_Range / (2^ADC_Nbits) * 1000 / Gain`
+* **Fortran-order reshaping**: Data is reshaped as `(channels, samples, order='F')`
+* **Mixed sampling rates**: Main EMG at 2kHz, control signals at 8kHz (automatically trimmed to match)
+
+---
+
 ## Under the Hood
 
 * **Format dispatch** in `EMGFile.load`:
@@ -120,6 +193,8 @@ from hdsemg_shared.fileio.matlab_file_io import MatFileIO
   * MATLAB (`.mat`) → `MatFileIO.load`
   * OTB+ / OTB (`.otb+`, `.otb`) → `otb_plus_file_io.load_otb_file`
   * OTB4 (`.otb4`) → `otb_4_file_io.load_otb4_file`
+    * **Novecento+** device detection and multi-track loading
+    * Grid metadata extraction from XML
 * **Sanitization**: ensures `data` is 2-D (samples × channels) and `time` is 1-D, swapping axes if needed.
 * **Grid JSON cache**: fetched from Google Drive once per week, stored in `~/.hdsemg_cache/`.
 

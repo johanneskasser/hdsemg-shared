@@ -138,12 +138,27 @@ class EMGFile:
                 scale, rows, cols = map(int, m.groups())
                 key = f"{rows}x{cols}"
                 if key not in info:
-                    # look up in JSON cache
-                    prod = m.group(0).upper()
-                    elec = next(
-                        (g["electrodes"] for g in grid_data if g["product"].upper() == prod),
-                        rows * cols
-                    )
+                    # look up in JSON cache, including transposed version
+                    prod = m.group(0).upper()  # e.g., "HD08MM0513"
+                    # Create transposed pattern: HD08MM1305 <-> HD08MM0513
+                    ied_part = prod[:4]  # "HD08"
+                    mm_part = prod[4:6]  # "MM"
+                    row_part = prod[6:8]  # "05"
+                    col_part = prod[8:10]  # "13"
+                    prod_transposed = f"{ied_part}{mm_part}{col_part}{row_part}"  # "HD08MM1305"
+
+                    # Search for exact match or transposed match with same IED
+                    elec = None
+                    for g in grid_data:
+                        g_prod_upper = g["product"].upper()
+                        if g_prod_upper == prod or g_prod_upper == prod_transposed:
+                            elec = g["electrodes"]
+                            break
+
+                    # Fallback to rows * cols if not found
+                    if elec is None:
+                        elec = rows * cols
+
                     info[key] = {
                         "rows": rows, "cols": cols, "ied_mm": scale,
                         "electrodes": elec, "indices": [], "refs": [],
