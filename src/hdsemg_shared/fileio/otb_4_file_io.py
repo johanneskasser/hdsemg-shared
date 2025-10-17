@@ -183,6 +183,7 @@ def parse_otb4_tracks_xml(xml_file):
         subtitle_str = _get_text_save(tr_el, "SubTitle", default="Unknown", do_strip= True)
         is_control_str = _get_text_save(tr_el, "IsControl", default="false", do_strip= True)
         chan_offset_str = _get_text_save(tr_el, "ChannelOffsetInSubPacket", default="0", do_strip= False)
+        muscle_str = _get_text_save(tr_el, "Muscle", default="", do_strip= True)
 
         # Konvertierungen
         gain_val = float(gain_str)
@@ -194,7 +195,7 @@ def parse_otb4_tracks_xml(xml_file):
         is_control_val = is_control_str.lower() == "true"
         chan_offset_val = int(chan_offset_str)
 
-        logger.debug(f"  Device: {device_str}, SubTitle: {subtitle_str}, Channels: {nchan_val}, Path: {path_str}, IsControl: {is_control_val}, Offset: {chan_offset_val}")
+        logger.debug(f"  Device: {device_str}, SubTitle: {subtitle_str}, Channels: {nchan_val}, Path: {path_str}, IsControl: {is_control_val}, Offset: {chan_offset_val}, Muscle: {muscle_str}")
 
         # Extract grid information from Description element if present
         grid_info = None
@@ -238,7 +239,8 @@ def parse_otb4_tracks_xml(xml_file):
             "SubTitle": subtitle_str,  # Grid identifier
             "GridInfo": grid_info,     # Grid metadata
             "IsControl": is_control_val,  # Whether this is a control/reference signal
-            "ChannelOffset": chan_offset_val  # Offset within signal file
+            "ChannelOffset": chan_offset_val,  # Offset within signal file
+            "Muscle": muscle_str if muscle_str else None  # Muscle name
         }
         results.append(track_dict)
         logger.debug(f"  Added track to results list (total: {len(results)})")
@@ -370,6 +372,9 @@ def read_novecento_plus(signals, track_info_list):
             else:
                 logger.debug(f"    No GridInfo, using fallback description format")
 
+            # Get muscle information for this track
+            muscle = matched_track.get("Muscle")
+
             for c in range(n_ch):
                 grid_id = matched_track.get("SubTitle", "Unknown")
 
@@ -394,6 +399,9 @@ def read_novecento_plus(signals, track_info_list):
                         # Valid EMG grid: use its own pattern (no REF marker)
                         grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
                         desc = f"{grid_id} {grid_pattern} ch{c+1}"
+                        # Add muscle information if available
+                        if muscle:
+                            desc += f" [MUSCLE:{muscle}]"
                 else:
                     # No grid info: just description without pattern
                     desc = f"{grid_id} ch{c+1}"
@@ -478,6 +486,7 @@ def read_standard_otb4(signals, track_info_list):
         grid_id = tr.get("SubTitle", "Unknown")
         nchan = tr["NumberOfChannels"]
         grid_info = tr.get("GridInfo")
+        muscle = tr.get("Muscle")
 
         if grid_info:
             logger.debug(f"Track #{tr_idx}: Using GridInfo for {nchan} channels: {grid_info['Name']} ({grid_info['NRow']}x{grid_info['NColumn']}, IED={grid_info['IED']}mm)")
@@ -493,6 +502,9 @@ def read_standard_otb4(signals, track_info_list):
                 cols = grid_info["NColumn"]
                 grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
                 desc = f"{dev} {grid_pattern} ch{c+1}"
+                # Add muscle information if available
+                if muscle:
+                    desc += f" [MUSCLE:{muscle}]"
             else:
                 desc = f"{dev}-{path}-{grid_id}-ch{c}"
             descriptions.append(desc)

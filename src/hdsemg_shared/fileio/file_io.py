@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass, field
+from typing import Optional
 import numpy as np
 import os, time, json, re, uuid, requests
 
@@ -12,6 +13,22 @@ from .otb_4_file_io import load_otb4_file
 # -----------------------------------------------------------------------------
 @dataclass
 class Grid:
+    """
+    Represents a high-density EMG electrode grid.
+
+    Attributes:
+        emg_indices: List of channel indices for EMG electrodes
+        ref_indices: List of channel indices for reference electrodes
+        rows: Number of rows in the grid
+        cols: Number of columns in the grid
+        ied_mm: Inter-electrode distance in millimeters
+        electrodes: Total number of active electrodes
+        grid_key: Unique identifier key (format: "{ied}mm_{rows}x{cols}" or with "_N" suffix)
+        grid_uid: Unique UUID for this grid instance
+        muscle: Optional muscle name where grid is placed (extracted from OTB4 XML <Muscle> tag)
+        requested_path_idx: Optional index of "requested path" description entry
+        performed_path_idx: Optional index of "performed path" description entry
+    """
     emg_indices: list[int]
     ref_indices: list[int]
     rows: int
@@ -20,8 +37,9 @@ class Grid:
     electrodes: int
     grid_key: str
     grid_uid: str = field(default_factory=lambda: str(uuid.uuid4()))
-    requested_path_idx: int | None = None
-    performed_path_idx: int | None = None
+    muscle: Optional[str] = None
+    requested_path_idx: Optional[int] = None
+    performed_path_idx: Optional[int] = None
 
 # -----------------------------------------------------------------------------
 # EMGFile: unified loader + grid extractor
@@ -101,6 +119,7 @@ class EMGFile:
 
         desc = self.description
         pattern = re.compile(r"HD(\d{2})MM(\d{2})(\d{2})")
+        muscle_pattern = re.compile(r"\[MUSCLE:(.*?)\]")
 
         # Instead of dict, use list to allow multiple grids with same specs
         grid_instances: list[dict] = []
@@ -186,7 +205,8 @@ class EMGFile:
                 "refs": [],
                 "req_idx": None,
                 "perf_idx": None,
-                "grid_key": grid_key
+                "grid_key": grid_key,
+                "muscle": None
             }
             grid_instances.append(new_grid)
             return new_grid
@@ -198,6 +218,11 @@ class EMGFile:
                 scale, rows, cols = map(int, m.groups())
                 current_grid = find_or_create_grid(scale, rows, cols, idx)
                 current_grid["indices"].append(idx)
+
+                # Extract muscle information if present
+                muscle_match = muscle_pattern.search(txt)
+                if muscle_match and current_grid["muscle"] is None:
+                    current_grid["muscle"] = muscle_match.group(1).strip()
             else:
                 if current_grid:
                     if "requested path" in txt.lower():
@@ -217,6 +242,7 @@ class EMGFile:
                 ied_mm=gi["ied_mm"],
                 electrodes=gi["electrodes"],
                 grid_key=gi["grid_key"],
+                muscle=gi.get("muscle"),
                 requested_path_idx=gi.get("req_idx"),
                 performed_path_idx=gi.get("perf_idx"),
             )

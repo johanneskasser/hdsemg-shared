@@ -419,3 +419,124 @@ def test_dual_identical_grids_non_contiguous():
     # Grid 2 should have refs at indices 134-139 (6 channels)
     assert len(grid2.ref_indices) == 6
     assert all(134 <= idx < 140 for idx in grid2.ref_indices)
+
+
+def test_muscle_information_extraction():
+    """
+    Test that muscle information is correctly extracted from OTB4 files.
+
+    This tests the muscle field in Grid dataclass, which should be populated
+    from the <Muscle> tag in the OTB4 XML file.
+    """
+    # Mock EMG file with muscle information in descriptions
+    data = np.random.randn(1000, 128)  # 128 channels total (64 + 64)
+    time = np.arange(1000) / 2000.0
+
+    # Create descriptions for two grids with different muscles
+    descriptions = []
+
+    # First grid: Vastus Lateralis
+    for i in range(64):
+        desc = f"IN1 HD08MM1305 ch{i+1} [MUSCLE:Vastus Lateralis Muscle Right]"
+        descriptions.append(np.array([[desc]], dtype=object))
+
+    # Second grid: Vastus Medialis
+    for i in range(64):
+        desc = f"IN2 HD04MM1305 ch{i+1} [MUSCLE:Vastus Medialis Muscle Right]"
+        descriptions.append(np.array([[desc]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    # Create EMGFile instance
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_muscle_info.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    # Get grids
+    grids = emg.grids
+
+    assert len(grids) == 2, f"Expected 2 grids, got {len(grids)}"
+
+    # Find grids by IED
+    grid_8mm = next(g for g in grids if g.ied_mm == 8)
+    grid_4mm = next(g for g in grids if g.ied_mm == 4)
+
+    # Verify muscle information is correctly extracted
+    assert grid_8mm.muscle == "Vastus Lateralis Muscle Right"
+    assert grid_4mm.muscle == "Vastus Medialis Muscle Right"
+
+
+def test_muscle_information_nullable():
+    """
+    Test that muscle field is nullable (can be None).
+
+    This tests grids without muscle information should have muscle=None.
+    """
+    # Mock EMG file without muscle information
+    data = np.random.randn(1000, 64)
+    time = np.arange(1000) / 2000.0
+
+    # Create descriptions WITHOUT muscle information
+    descriptions = []
+    for i in range(64):
+        descriptions.append(np.array([[f"IN1 HD08MM1305 ch{i+1}"]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    # Create EMGFile instance
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_no_muscle.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    # Get grids
+    grids = emg.grids
+
+    assert len(grids) == 1
+    grid = grids[0]
+
+    # Verify muscle is None when not specified
+    assert grid.muscle is None
+
+
+def test_muscle_consistent_across_channels():
+    """
+    Test that muscle information is set from the first channel and remains consistent.
+
+    When multiple channels of the same grid have muscle info, the first one should be used.
+    """
+    data = np.random.randn(1000, 64)
+    time = np.arange(1000) / 2000.0
+
+    descriptions = []
+    # All channels have the same muscle info
+    for i in range(64):
+        desc = f"IN1 HD08MM1305 ch{i+1} [MUSCLE:Biceps Brachii]"
+        descriptions.append(np.array([[desc]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_muscle_consistent.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    grids = emg.grids
+    assert len(grids) == 1
+    assert grids[0].muscle == "Biceps Brachii"

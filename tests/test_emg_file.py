@@ -103,6 +103,9 @@ def test_grids_extraction(monkeypatch, tmp_path):
     assert g.grid_key == "10mm_2x3"
     uuid.UUID(g.grid_uid)  # valid UUID
 
+    # muscle field should be None when not specified
+    assert g.muscle is None
+
 def test_grid_cache_refresh(monkeypatch, tmp_path):
     # create an expired cache
     cache = tmp_path / "old.json"
