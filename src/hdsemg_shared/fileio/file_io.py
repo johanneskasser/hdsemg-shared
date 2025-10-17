@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass, field
+from typing import Optional
 import numpy as np
 import os, time, json, re, uuid, requests
 
@@ -12,6 +13,22 @@ from .otb_4_file_io import load_otb4_file
 # -----------------------------------------------------------------------------
 @dataclass
 class Grid:
+    """
+    Represents a high-density EMG electrode grid.
+
+    Attributes:
+        emg_indices: List of channel indices for EMG electrodes
+        ref_indices: List of channel indices for reference electrodes
+        rows: Number of rows in the grid
+        cols: Number of columns in the grid
+        ied_mm: Inter-electrode distance in millimeters
+        electrodes: Total number of active electrodes
+        grid_key: Unique identifier key (format: "{ied}mm_{rows}x{cols}" or with "_N" suffix)
+        grid_uid: Unique UUID for this grid instance
+        muscle: Optional muscle name where grid is placed (extracted from OTB4 XML <Muscle> tag)
+        requested_path_idx: Optional index of "requested path" description entry
+        performed_path_idx: Optional index of "performed path" description entry
+    """
     emg_indices: list[int]
     ref_indices: list[int]
     rows: int
@@ -20,8 +37,9 @@ class Grid:
     electrodes: int
     grid_key: str
     grid_uid: str = field(default_factory=lambda: str(uuid.uuid4()))
-    requested_path_idx: int | None = None
-    performed_path_idx: int | None = None
+    muscle: Optional[str] = None
+    requested_path_idx: Optional[int] = None
+    performed_path_idx: Optional[int] = None
 
 # -----------------------------------------------------------------------------
 # EMGFile: unified loader + grid extractor
@@ -93,15 +111,19 @@ class EMGFile:
     def grids(self) -> list[Grid]:
         """
         Lazily extract grid metadata from `self.description` and return a list
-        of Grid instances.
+        of Grid instances. Handles multiple grids with identical specifications
+        by detecting non-contiguous channel indices.
         """
         if self._grids is not None:
             return self._grids
 
         desc = self.description
         pattern = re.compile(r"HD(\d{2})MM(\d{2})(\d{2})")
-        info: dict[str, dict] = {}
-        current_key = None
+        muscle_pattern = re.compile(r"\[MUSCLE:(.*?)\]")
+
+        # Instead of dict, use list to allow multiple grids with same specs
+        grid_instances: list[dict] = []
+        current_grid = None
 
         # pull in (or fetch) the grid-data cache
         grid_data = self._load_grid_data()
@@ -131,52 +153,87 @@ class EMGFile:
             except Exception:
                 return str(e)
 
+        def is_contiguous(indices: list[int], new_idx: int, tolerance: int = 5) -> bool:
+            """Check if new_idx is contiguous with existing indices."""
+            if not indices:
+                return True
+            # Check if within tolerance of the last index
+            return abs(new_idx - indices[-1]) <= tolerance
+
+        def find_or_create_grid(scale: int, rows: int, cols: int, idx: int) -> dict:
+            """Find existing grid with matching specs and contiguous indices, or create new one."""
+            # Look for existing grid with same specs
+            base_key = f"{scale}mm_{rows}x{cols}"
+
+            for grid_inst in grid_instances:
+                if (grid_inst["ied_mm"] == scale and
+                    grid_inst["rows"] == rows and
+                    grid_inst["cols"] == cols and
+                    is_contiguous(grid_inst["indices"], idx)):
+                    return grid_inst
+
+            # No contiguous grid found, create new instance
+            # Look up electrode count from cache
+            prod = f"HD{scale:02d}MM{rows:02d}{cols:02d}".upper()
+            # Create transposed pattern
+            prod_transposed = f"HD{scale:02d}MM{cols:02d}{rows:02d}".upper()
+
+            elec = None
+            for g in grid_data:
+                g_prod_upper = g["product"].upper()
+                if g_prod_upper == prod or g_prod_upper == prod_transposed:
+                    elec = g["electrodes"]
+                    break
+
+            if elec is None:
+                elec = rows * cols
+
+            # Create unique key with instance counter if needed
+            instance_num = sum(1 for g in grid_instances
+                             if g["ied_mm"] == scale and g["rows"] == rows and g["cols"] == cols)
+            if instance_num > 0:
+                grid_key = f"{base_key}_{instance_num + 1}"
+            else:
+                grid_key = base_key
+
+            new_grid = {
+                "rows": rows,
+                "cols": cols,
+                "ied_mm": scale,
+                "electrodes": elec,
+                "indices": [],
+                "refs": [],
+                "req_idx": None,
+                "perf_idx": None,
+                "grid_key": grid_key,
+                "muscle": None
+            }
+            grid_instances.append(new_grid)
+            return new_grid
+
         for idx, ent in enumerate(desc):
             txt = entry_text(ent)
             m = pattern.search(txt)
             if m:
                 scale, rows, cols = map(int, m.groups())
-                key = f"{rows}x{cols}"
-                if key not in info:
-                    # look up in JSON cache, including transposed version
-                    prod = m.group(0).upper()  # e.g., "HD08MM0513"
-                    # Create transposed pattern: HD08MM1305 <-> HD08MM0513
-                    ied_part = prod[:4]  # "HD08"
-                    mm_part = prod[4:6]  # "MM"
-                    row_part = prod[6:8]  # "05"
-                    col_part = prod[8:10]  # "13"
-                    prod_transposed = f"{ied_part}{mm_part}{col_part}{row_part}"  # "HD08MM1305"
+                current_grid = find_or_create_grid(scale, rows, cols, idx)
+                current_grid["indices"].append(idx)
 
-                    # Search for exact match or transposed match with same IED
-                    elec = None
-                    for g in grid_data:
-                        g_prod_upper = g["product"].upper()
-                        if g_prod_upper == prod or g_prod_upper == prod_transposed:
-                            elec = g["electrodes"]
-                            break
-
-                    # Fallback to rows * cols if not found
-                    if elec is None:
-                        elec = rows * cols
-
-                    info[key] = {
-                        "rows": rows, "cols": cols, "ied_mm": scale,
-                        "electrodes": elec, "indices": [], "refs": [],
-                        "req_idx": None, "perf_idx": None
-                    }
-                info[key]["indices"].append(idx)
-                current_key = key
+                # Extract muscle information if present
+                muscle_match = muscle_pattern.search(txt)
+                if muscle_match and current_grid["muscle"] is None:
+                    current_grid["muscle"] = muscle_match.group(1).strip()
             else:
-                if current_key:
+                if current_grid:
                     if "requested path" in txt.lower():
-                        info[current_key]["requested_path_idx"] = idx
+                        current_grid["req_idx"] = idx
                     if "performed path" in txt.lower():
-                        info[current_key]["performed_path_idx"] = idx
-                    info[current_key]["refs"].append((idx, txt))
+                        current_grid["perf_idx"] = idx
+                    current_grid["refs"].append((idx, txt))
 
         # build Grid objects
         self._grids = []
-        for key, gi in info.items():
+        for gi in grid_instances:
             grid = Grid(
                 emg_indices=gi["indices"],
                 ref_indices=[i for i, _ in gi["refs"]],
@@ -184,9 +241,10 @@ class EMGFile:
                 cols=gi["cols"],
                 ied_mm=gi["ied_mm"],
                 electrodes=gi["electrodes"],
-                grid_key=key,
-                requested_path_idx=gi.get("requested_path_idx"),
-                performed_path_idx=gi.get("performed_path_idx"),
+                grid_key=gi["grid_key"],
+                muscle=gi.get("muscle"),
+                requested_path_idx=gi.get("req_idx"),
+                performed_path_idx=gi.get("perf_idx"),
             )
             self._grids.append(grid)
 

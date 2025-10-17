@@ -100,8 +100,11 @@ def test_grids_extraction(monkeypatch, tmp_path):
     # geometry parsed correctly
     assert (g.rows, g.cols, g.ied_mm) == (2, 3, 10)
     assert g.electrodes == 100
-    assert g.grid_key == "2x3"
+    assert g.grid_key == "10mm_2x3"
     uuid.UUID(g.grid_uid)  # valid UUID
+
+    # muscle field should be None when not specified
+    assert g.muscle is None
 
 def test_grid_cache_refresh(monkeypatch, tmp_path):
     # create an expired cache
