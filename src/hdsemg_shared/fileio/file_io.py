@@ -225,7 +225,8 @@ class EMGFile:
                     current_grid["muscle"] = muscle_match.group(1).strip()
             else:
                 if current_grid:
-                    if "requested path" in txt.lower():
+                    # Support both "requested path" and "original path" for the requested/original path index
+                    if "requested path" in txt.lower() or "original path" in txt.lower():
                         current_grid["req_idx"] = idx
                     if "performed path" in txt.lower():
                         current_grid["perf_idx"] = idx

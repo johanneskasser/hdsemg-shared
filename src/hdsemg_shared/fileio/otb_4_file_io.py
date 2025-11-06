@@ -74,6 +74,10 @@ def load_otb4_file(file_path):
     logger.debug(f"Parsing OTB4 XML: {tracks_xml}")
     track_info_list = parse_otb4_tracks_xml(tracks_xml)  # We'll define below
 
+    # Parse TrapezoidalTracks XML files for force signals
+    trapezoidal_tracks = parse_trapezoidal_tracks_xml(tmpdir)
+    logger.debug(f"Found {len(trapezoidal_tracks)} trapezoidal track files with force signals")
+
     # We'll also list .sig files in tmpdir
     signals = []
     for root, dirs, files in os.walk(tmpdir):
@@ -105,10 +109,10 @@ def load_otb4_file(file_path):
 
     if device == "Novecento+":
         logger.debug("Using Novecento+ reader")
-        data, descriptions, fs_main = read_novecento_plus(signals, track_info_list)
+        data, descriptions, fs_main = read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir)
     else:
         logger.debug("Using standard OTB4 reader")
-        data, descriptions, fs_main = read_standard_otb4(signals, track_info_list)
+        data, descriptions, fs_main = read_standard_otb4(signals, track_info_list, trapezoidal_tracks, tmpdir)
 
     description_array = np.array(
         [[np.array([desc], dtype=f'<U{len(desc)}')] for desc in descriptions],
@@ -248,6 +252,90 @@ def parse_otb4_tracks_xml(xml_file):
     logger.info(f"Parsed {len(results)} tracks from XML, {sum(1 for r in results if r['GridInfo'] is not None)} with grid info")
     return results
 
+
+def parse_trapezoidal_tracks_xml(tmpdir):
+    """
+    Parse TrapezoidalTracks_*.xml files to extract force signal information.
+
+    These files contain "Performed Path" and "Original Path" force signals that should
+    be added as reference signals to all grids.
+
+    Args:
+        tmpdir: Directory containing extracted OTB4 files
+
+    Returns:
+        list: List of dictionaries containing force signal track information:
+            [{
+                "SubTitle": "Performed Path" or "Original Path",
+                "SignalStreamPath": "filename.sig",
+                "SamplingFrequency": float,
+                "Gain": float,
+                "ADC_Nbits": int,
+                "ADC_Range": float,
+                "AcquisitionChannel": int,
+                "NumberOfChannels": int (always 1 for force signals)
+            }, ...]
+    """
+    logger.debug(f"Searching for TrapezoidalTracks XML files in {tmpdir}")
+    trapezoidal_tracks = []
+
+    # Find all TrapezoidalTracks_*.xml files
+    for root, dirs, files in os.walk(tmpdir):
+        for f in files:
+            if f.startswith("TrapezoidalTracks_") and f.endswith(".xml"):
+                xml_path = os.path.join(root, f)
+                logger.debug(f"Parsing trapezoidal tracks XML: {xml_path}")
+
+                try:
+                    tree = ET.parse(xml_path)
+                    track_info_parent = tree.getroot()
+
+                    if track_info_parent is None:
+                        logger.warning(f"XML root is None in {xml_path}")
+                        continue
+
+                    # Find all TrackInfo elements
+                    track_info_elems = track_info_parent.findall("TrackInfo")
+                    logger.debug(f"Found {len(track_info_elems)} TrackInfo elements in {f}")
+
+                    for idx, tr_el in enumerate(track_info_elems):
+                        subtitle_str = _get_text_save(tr_el, "SubTitle", default="Unknown", do_strip=True)
+                        path_str = _get_text_save(tr_el, "SignalStreamPath", default="", do_strip=True)
+                        fs_str = _get_text_save(tr_el, "SamplingFrequency", default="10", do_strip=False)
+                        gain_str = _get_text_save(tr_el, "Gain", default="0.5", do_strip=False)
+                        bits_str = _get_text_save(tr_el, "ADC_Nbits", default="1", do_strip=False)
+                        rng_str = _get_text_save(tr_el, "ADC_Range", default="1", do_strip=False)
+                        acq_str = _get_text_save(tr_el, "AcquisitionChannel", default="0", do_strip=False)
+
+                        # Convert to appropriate types
+                        fs_val = float(fs_str)
+                        gain_val = float(gain_str)
+                        bits_val = int(bits_str)
+                        rng_val = float(rng_str)
+                        acq_val = int(acq_str)
+
+                        track_dict = {
+                            "SubTitle": subtitle_str,
+                            "SignalStreamPath": path_str,
+                            "SamplingFrequency": fs_val,
+                            "Gain": gain_val,
+                            "ADC_Nbits": bits_val,
+                            "ADC_Range": rng_val,
+                            "AcquisitionChannel": acq_val,
+                            "NumberOfChannels": 1  # Force signals are always 1 channel
+                        }
+
+                        trapezoidal_tracks.append(track_dict)
+                        logger.debug(f"  Added force signal: {subtitle_str} from {path_str} (channel {acq_val})")
+
+                except Exception as e:
+                    logger.warning(f"Failed to parse {xml_path}: {e}")
+                    continue
+
+    logger.info(f"Parsed {len(trapezoidal_tracks)} force signal tracks from TrapezoidalTracks XML files")
+    return trapezoidal_tracks
+
+
 def _get_text_save(parent, tag, default="", do_strip=True, requred_none_null=False):
     """
        Find the first child <tag> under `parent`, return its .text (stripped if requested),
@@ -267,14 +355,16 @@ def _get_text_save(parent, tag, default="", do_strip=True, requred_none_null=Fal
 
 
 
-def read_novecento_plus(signals, track_info_list):
+def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
     """
     For the 'Novecento+' device, reads data from signal files using int32 format.
     Handles multiple tracks per signal file using ChannelOffset to extract correct channels.
+    Also processes force signals from TrapezoidalTracks XML and adds them to all grids.
     Returns final (data, descriptions, fs).
     """
     logger.debug("read_novecento_plus routine")
     logger.debug(f"Processing {len(signals)} signal files with {len(track_info_list)} tracks")
+    logger.debug(f"Processing {len(trapezoidal_tracks)} force signal tracks")
 
     # First pass: identify valid EMG grids (not control signals)
     # We'll use the last valid EMG grid pattern for control signals
@@ -410,28 +500,134 @@ def read_novecento_plus(signals, track_info_list):
 
             logger.debug(f"    Generated {n_ch} descriptions (total so far: {len(descriptions)})")
 
-    lens = [b.shape[1] for b in data_blocks]
+    # Process force signals from TrapezoidalTracks XML files
+    force_signal_data = []
+    force_signal_descriptions = []
+
+    if trapezoidal_tracks:
+        logger.debug(f"Processing {len(trapezoidal_tracks)} force signal tracks")
+
+        # Group force signals by their signal file
+        force_signals_by_file = {}
+        for ft in trapezoidal_tracks:
+            sig_file = ft["SignalStreamPath"]
+            if sig_file not in force_signals_by_file:
+                force_signals_by_file[sig_file] = []
+            force_signals_by_file[sig_file].append(ft)
+
+        # Process each force signal file
+        for sig_file, force_tracks in force_signals_by_file.items():
+            sig_path = os.path.join(tmpdir, sig_file)
+
+            if not os.path.exists(sig_path):
+                logger.warning(f"  Force signal file not found: {sig_file}")
+                continue
+
+            logger.debug(f"  Reading force signal file: {sig_file}")
+
+            # Calculate total channels in this force signal file
+            total_force_channels = sum(ft["NumberOfChannels"] for ft in force_tracks)
+
+            # Read force signal file as float64 (8 bytes per sample)
+            raw_force = np.fromfile(sig_path, dtype=np.float64)
+            force_samples = raw_force.size // total_force_channels
+
+            if raw_force.size % total_force_channels != 0:
+                logger.warning(f"    Force file size mismatch: {raw_force.size} values not divisible by {total_force_channels} channels")
+                raw_force = raw_force[:force_samples * total_force_channels]
+
+            logger.debug(f"    Read {raw_force.size} float64 values, {force_samples} samples × {total_force_channels} channels")
+
+            # Reshape to (total_channels, samples) using Fortran order
+            force_data = raw_force.reshape((total_force_channels, force_samples), order='F')
+            logger.debug(f"    Reshaped force data: {force_data.shape}")
+
+            # Extract each force track
+            for ft in force_tracks:
+                acq_channel = ft["AcquisitionChannel"]
+                subtitle = ft["SubTitle"]
+
+                if acq_channel >= total_force_channels:
+                    logger.warning(f"    Force signal channel {acq_channel} out of range (max {total_force_channels-1})")
+                    continue
+
+                # Extract the specific channel
+                channel_data = force_data[acq_channel:acq_channel+1, :]
+                logger.debug(f"    Extracted force channel {acq_channel}: {subtitle}, shape: {channel_data.shape}")
+
+                # Apply gain/scaling conversion
+                conv = ft["ADC_Range"] / (2 ** ft["ADC_Nbits"]) * 1000 / ft["Gain"]
+                channel_data = channel_data.astype(np.float64) * conv
+
+                force_signal_data.append(channel_data)
+                force_signal_descriptions.append(f"{subtitle}")
+
+                logger.debug(f"    Added force signal: {subtitle}")
+
+    # Combine EMG data and force signals
+    all_data_blocks = data_blocks.copy()
+    all_descriptions = descriptions.copy()
+
+    # Calculate target sample count from EMG data
+    target_samples = data_blocks[0].shape[1] if data_blocks else 0
+
+    # Resample force signals to match EMG sampling rate
+    if force_signal_data and target_samples > 0:
+        logger.debug(f"Resampling {len(force_signal_data)} force signals to match EMG data")
+
+        from scipy.interpolate import interp1d
+
+        for idx, force_block in enumerate(force_signal_data):
+            force_samples = force_block.shape[1]
+
+            if force_samples != target_samples:
+                logger.debug(f"  Resampling force signal {idx}: {force_samples} -> {target_samples} samples")
+
+                # Create interpolation function
+                old_time = np.linspace(0, 1, force_samples)
+                new_time = np.linspace(0, 1, target_samples)
+
+                resampled_data = np.zeros((1, target_samples))
+                interpolator = interp1d(old_time, force_block[0, :], kind='linear', fill_value='extrapolate')
+                resampled_data[0, :] = interpolator(new_time)
+
+                force_signal_data[idx] = resampled_data
+                logger.debug(f"    Resampled shape: {resampled_data.shape}")
+
+        # Add force signals as shared reference signals for all grids
+        # These should be added ONCE and will be referenced by all grids
+        logger.debug(f"Adding {len(force_signal_data)} force signals as shared reference signals")
+
+        for force_idx, force_data_block in enumerate(force_signal_data):
+            all_data_blocks.append(force_data_block)
+            force_desc = force_signal_descriptions[force_idx]
+            all_descriptions.append(force_desc)
+            logger.debug(f"  Added force signal: '{force_desc}'")
+
+    lens = [b.shape[1] for b in all_data_blocks]
     if not all(l == lens[0] for l in lens):
         # mismatch sample counts => handle or raise
         logger.warning(f"Different sample lengths among signals: {lens}. Picking min length.")
         min_len = min(lens)
-        for i in range(len(data_blocks)):
-            data_blocks[i] = data_blocks[i][:, :min_len]
+        for i in range(len(all_data_blocks)):
+            all_data_blocks[i] = all_data_blocks[i][:, :min_len]
         logger.debug(f"Trimmed all blocks to {min_len} samples")
 
     # vstack them
-    final_data = np.vstack(data_blocks) if data_blocks else np.zeros((0, 0))
-    logger.info(f"read_novecento_plus: Final data shape: {final_data.shape}, {len(descriptions)} descriptions, fs={fs_main or 2000} Hz")
-    return final_data, descriptions, fs_main or 2000
+    final_data = np.vstack(all_data_blocks) if all_data_blocks else np.zeros((0, 0))
+    logger.info(f"read_novecento_plus: Final data shape: {final_data.shape}, {len(all_descriptions)} descriptions, fs={fs_main or 2000} Hz")
+    return final_data, all_descriptions, fs_main or 2000
 
 
-def read_standard_otb4(signals, track_info_list):
+def read_standard_otb4(signals, track_info_list, trapezoidal_tracks, tmpdir):
     """
     We read the *first* .sig using 'short' if so indicated,
     then apply Gains for each track in partial channel intervals.
+    Also processes force signals from TrapezoidalTracks XML and adds them to all grids.
     """
     logger.debug("read_standard_otb4 routine")
     logger.debug(f"Processing {len(signals)} signal files with {len(track_info_list)} tracks")
+    logger.debug(f"Processing {len(trapezoidal_tracks)} force signal tracks")
 
     if not signals:
         logger.warning("No signal files provided, returning empty data")
@@ -511,6 +707,13 @@ def read_standard_otb4(signals, track_info_list):
             desc_idx += 1
 
         logger.debug(f"  Generated {nchan} descriptions (total so far: {desc_idx})")
+
+    # Process force signals from TrapezoidalTracks XML files
+    # Note: For standard OTB4, we currently don't have force signal processing implemented
+    # as the typical use case is Novecento+. If needed in the future, similar logic to
+    # read_novecento_plus can be added here.
+    if trapezoidal_tracks:
+        logger.warning(f"Found {len(trapezoidal_tracks)} trapezoidal tracks, but force signal processing is not yet implemented for standard OTB4 devices")
 
     # the .m code picks the sample freq from e.g. Fsample{nSig}, presumably from the first track
     fs_main = track_info_list[0]["SamplingFrequency"] if track_info_list else 2000.0
