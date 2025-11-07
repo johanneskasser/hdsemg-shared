@@ -390,6 +390,9 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
     descriptions = []
     fs_main = None
 
+    # Track grids as we process them for force signal insertion
+    grid_boundaries = []  # List of (grid_idx, channel_end_idx) to know where to insert force signals
+
     for sig_idx, sig_path in enumerate(signals):
         logger.debug(f"Processing signal file #{sig_idx}: {os.path.basename(sig_path)}")
 
@@ -445,7 +448,9 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
             block = block.astype(np.float64) * conv
             logger.debug(f"    Applied conversion factor: {conv:.6f}")
 
-            data_blocks.append(block)
+            # Store each channel separately so we can insert force signals between grids
+            for ch_idx in range(block.shape[0]):
+                data_blocks.append(block[ch_idx:ch_idx+1, :])
 
             # Track sampling frequency
             if fs_main is None:
@@ -464,6 +469,16 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
 
             # Get muscle information for this track
             muscle = matched_track.get("Muscle")
+
+            # Check if this is an EMG grid (will need force signals after its refs)
+            is_emg_grid = False
+            if grid_info and not is_control:
+                ied = grid_info["IED"]
+                rows = grid_info["NRow"]
+                cols = grid_info["NColumn"]
+                electrodes = rows * cols
+                if ied > 1 or electrodes > 4:
+                    is_emg_grid = True
 
             for c in range(n_ch):
                 grid_id = matched_track.get("SubTitle", "Unknown")
@@ -564,19 +579,26 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
 
                 logger.debug(f"    Added force signal: {subtitle}")
 
-    # Combine EMG data and force signals
-    all_data_blocks = data_blocks.copy()
-    all_descriptions = descriptions.copy()
-
     # Calculate target sample count from EMG data
     target_samples = data_blocks[0].shape[1] if data_blocks else 0
 
-    # Resample force signals to match EMG sampling rate
+    # Helper function to check if signal is flat
+    def is_flat_signal(signal_data):
+        """Check if signal has no variation (flat line)"""
+        std_dev = np.std(signal_data)
+        return std_dev < 1e-6  # Very small threshold for flat detection
+
+    # Resample force signals to match EMG sampling rate and select the best ones
+    final_force_signals = []
+    final_force_descriptions = []
+
     if force_signal_data and target_samples > 0:
-        logger.debug(f"Resampling {len(force_signal_data)} force signals to match EMG data")
+        logger.debug(f"Processing {len(force_signal_data)} force signals")
 
         from scipy.interpolate import interp1d
 
+        # Resample all force signals
+        resampled_force_signals = []
         for idx, force_block in enumerate(force_signal_data):
             force_samples = force_block.shape[1]
 
@@ -591,18 +613,160 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
                 interpolator = interp1d(old_time, force_block[0, :], kind='linear', fill_value='extrapolate')
                 resampled_data[0, :] = interpolator(new_time)
 
-                force_signal_data[idx] = resampled_data
+                resampled_force_signals.append(resampled_data)
                 logger.debug(f"    Resampled shape: {resampled_data.shape}")
+            else:
+                resampled_force_signals.append(force_block)
 
-        # Add force signals as shared reference signals for all grids
-        # These should be added ONCE and will be referenced by all grids
-        logger.debug(f"Adding {len(force_signal_data)} force signals as shared reference signals")
+        # Group by signal type
+        performed_signals = []
+        original_signals = []
 
-        for force_idx, force_data_block in enumerate(force_signal_data):
-            all_data_blocks.append(force_data_block)
-            force_desc = force_signal_descriptions[force_idx]
-            all_descriptions.append(force_desc)
-            logger.debug(f"  Added force signal: '{force_desc}'")
+        for idx, desc in enumerate(force_signal_descriptions):
+            if "Performed Path" in desc:
+                performed_signals.append((idx, desc, resampled_force_signals[idx]))
+            elif "Original Path" in desc or "Requested Path" in desc:
+                original_signals.append((idx, desc, resampled_force_signals[idx]))
+
+        logger.debug(f"  Found {len(performed_signals)} Performed Path signals")
+        logger.debug(f"  Found {len(original_signals)} Original/Requested Path signals")
+
+        # Helper function to select best signal from duplicates
+        def select_best_signal(signal_list, signal_type):
+            """Select the non-flat signal from duplicates, or None if all are flat"""
+            if len(signal_list) == 0:
+                return None
+            elif len(signal_list) == 1:
+                idx, desc, data = signal_list[0]
+                if is_flat_signal(data):
+                    logger.debug(f"    Single {signal_type} signal is flat, excluding it")
+                    return None
+                return signal_list[0]
+            elif len(signal_list) == 2:
+                # Check which one is not flat
+                idx1, desc1, data1 = signal_list[0]
+                idx2, desc2, data2 = signal_list[1]
+
+                is_flat1 = is_flat_signal(data1)
+                is_flat2 = is_flat_signal(data2)
+
+                if not is_flat1 and is_flat2:
+                    logger.debug(f"    Selected {signal_type} signal at index {idx1} (not flat)")
+                    return signal_list[0]
+                elif is_flat1 and not is_flat2:
+                    logger.debug(f"    Selected {signal_type} signal at index {idx2} (not flat)")
+                    return signal_list[1]
+                elif is_flat1 and is_flat2:
+                    logger.debug(f"    Both {signal_type} signals are flat, excluding them")
+                    return None
+                else:
+                    # Both not flat - use first one
+                    logger.debug(f"    Both {signal_type} signals have data, using first one at index {idx1}")
+                    return signal_list[0]
+            else:
+                # More than 2 - try to find one that's not flat
+                logger.debug(f"    Found {len(signal_list)} {signal_type} signals, selecting first non-flat one")
+                for idx, desc, data in signal_list:
+                    if not is_flat_signal(data):
+                        logger.debug(f"      Selected signal at index {idx} (not flat)")
+                        return (idx, desc, data)
+                logger.debug(f"    All {signal_type} signals are flat, excluding them")
+                return None
+
+        # Select best signals, checking for flatline
+        selected_performed = select_best_signal(performed_signals, "Performed Path")
+        selected_original = select_best_signal(original_signals, "Original/Requested Path")
+
+        # Build final force signal lists - order matters: performed first, then original
+        if selected_performed:
+            final_force_signals.append(selected_performed[2])
+            final_force_descriptions.append("Performed Path")
+            logger.info(f"Included Performed Path signal (non-flat)")
+        else:
+            logger.info(f"Excluded Performed Path signal (flat or not found)")
+
+        if selected_original:
+            final_force_signals.append(selected_original[2])
+            final_force_descriptions.append("Original Path")
+            logger.info(f"Included Original/Requested Path signal (non-flat)")
+        else:
+            logger.info(f"Excluded Original/Requested Path signal (flat or not found)")
+
+    # Find grid boundaries by detecting transitions in grid patterns
+    import re
+    grid_pattern_regex = re.compile(r'HD\d{2}MM\d{4}')
+
+    # Build a list that tracks: (index, grid_pattern, is_ref)
+    channel_info = []
+    for idx, desc in enumerate(descriptions):
+        match = grid_pattern_regex.search(desc)
+        is_ref = "REF" in desc
+        if match:
+            pattern = match.group()
+            channel_info.append((idx, pattern, is_ref))
+        else:
+            # No pattern - this is a reference channel or control signal
+            channel_info.append((idx, None, True))
+
+    # Find grid boundaries: transitions where the grid pattern changes
+    grid_boundaries = []  # List of (start_idx, end_idx, grid_pattern)
+    if channel_info:
+        current_pattern = channel_info[0][1]
+        current_start = 0
+
+        for i in range(1, len(channel_info)):
+            idx, pattern, is_ref = channel_info[i]
+
+            # Grid boundary detected when:
+            # 1. Pattern changes (and not None)
+            # 2. Current channel is EMG (not ref) and pattern is different
+            if pattern != current_pattern and pattern is not None and not is_ref:
+                # End of previous grid
+                grid_boundaries.append((current_start, i, current_pattern))
+                current_pattern = pattern
+                current_start = i
+
+        # Add last grid
+        if current_pattern is not None:
+            grid_boundaries.append((current_start, len(channel_info), current_pattern))
+
+    logger.debug(f"Detected {len(grid_boundaries)} grid boundaries")
+    for start, end, pattern in grid_boundaries:
+        logger.debug(f"  Grid pattern {pattern}: channels {start}-{end-1}")
+
+    # Build final data by inserting force signals after each grid
+    all_data_blocks = []
+    all_descriptions = []
+
+    if grid_boundaries and final_force_signals:
+        # Insert force signals after each grid
+        current_idx = 0
+
+        for grid_num, (grid_start, grid_end, grid_pattern) in enumerate(grid_boundaries):
+            # Add all channels up to and including this grid
+            for i in range(current_idx, grid_end):
+                all_data_blocks.append(data_blocks[i])
+                all_descriptions.append(descriptions[i])
+
+            # Add force signals for this grid
+            logger.debug(f"Adding {len(final_force_signals)} force signals after grid {grid_num+1} (pattern: {grid_pattern})")
+            for force_idx, (force_data, force_desc) in enumerate(zip(final_force_signals, final_force_descriptions)):
+                all_data_blocks.append(force_data.copy())
+                all_descriptions.append(force_desc)
+                logger.debug(f"  Inserted '{force_desc}' after grid {grid_num+1}")
+
+            current_idx = grid_end
+
+        # Add any remaining channels after the last grid
+        for i in range(current_idx, len(data_blocks)):
+            all_data_blocks.append(data_blocks[i])
+            all_descriptions.append(descriptions[i])
+
+    else:
+        # No grids detected or no force signals - use original data
+        logger.debug("No grid boundaries detected or no force signals, using original data")
+        all_data_blocks = data_blocks
+        all_descriptions = descriptions
 
     lens = [b.shape[1] for b in all_data_blocks]
     if not all(l == lens[0] for l in lens):
