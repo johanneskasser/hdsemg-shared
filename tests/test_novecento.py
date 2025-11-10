@@ -40,17 +40,15 @@ def test_novecento_channel_count():
 
     emg = EMGFile.load(str(test_file))
 
-    # Expected channels based on XML:
+    # Expected channels after filtering:
     # - 64 EMG channels (HD08MM1305)
-    # - 4 Quaternions
-    # - 2 Buffer/Ramp (IsControl=true)
-    # - 3 AUX channels
-    # - 1 Load Cell (might fail due to offset issue)
-    # - 8 Control Signals (IsControl=true)
-    # Total: 78 channels (or 77 if Load Cell fails)
+    # Control signals, quaternions, and AUX channels are now filtered out
+    # as they are not needed for EMG analysis
+    # This test file has no force signals, so only EMG channels remain
+    # Total: 64 channels
 
-    assert emg.channel_count >= 77
-    assert emg.data.shape[1] >= 77
+    assert emg.channel_count >= 64
+    assert emg.data.shape[1] >= 64
 
 
 def test_novecento_grid_detection():
@@ -103,20 +101,16 @@ def test_novecento_reference_channels():
 
     assert main_grid is not None
 
-    # Reference channels should include:
-    # - 4 Quaternions
-    # - 2 Buffer/Ramp (IsControl=true)
-    # - 8 Control Signals (IsControl=true)
-    # - Potentially 3 AUX channels
-    # Total: at least 14 reference channels
+    # After filtering out control signals, quaternions, and AUX channels,
+    # reference channels should only include force signals (Performed Path, Original Path)
+    # This test file has no TrapezoidalTracks XML, so there are NO reference channels
+    # (Control signals, quaternions, and AUX are filtered out as not needed for EMG analysis)
 
-    assert len(main_grid.ref_indices) >= 10
+    # For this test file without force signals, expect 0 ref channels
+    assert len(main_grid.ref_indices) == 0
 
-    # Verify that ref channels have "REF" marker in descriptions
-    for ref_idx in main_grid.ref_indices:
-        desc = emg.description[ref_idx]
-        desc_str = str(desc).upper()
-        assert "REF" in desc_str, f"Reference channel {ref_idx} missing REF marker: {desc}"
+    # Note: Files with TrapezoidalTracks XML will have 2 ref channels per grid
+    # (Performed Path and Original Path)
 
 
 def test_novecento_emg_channel_descriptions():

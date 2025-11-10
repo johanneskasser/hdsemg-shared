@@ -390,9 +390,72 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
     descriptions = []
     fs_main = None
 
-    # Track grids as we process them for force signal insertion
-    grid_boundaries = []  # List of (grid_idx, channel_end_idx) to know where to insert force signals
+    # FIRST: Process trapezoidal force signal files separately
+    # These are in separate .sig files not referenced by the main track_info_list
+    force_signal_data = []
+    force_signal_descriptions = []
 
+    if trapezoidal_tracks:
+        logger.debug(f"Processing {len(trapezoidal_tracks)} force signal tracks")
+
+        # Group force signals by their signal file
+        force_signals_by_file = {}
+        for ft in trapezoidal_tracks:
+            sig_file = ft["SignalStreamPath"]
+            if sig_file not in force_signals_by_file:
+                force_signals_by_file[sig_file] = []
+            force_signals_by_file[sig_file].append(ft)
+
+        # Process each force signal file
+        for sig_file, force_tracks in force_signals_by_file.items():
+            sig_path = os.path.join(tmpdir, sig_file)
+
+            if not os.path.exists(sig_path):
+                logger.warning(f"  Force signal file not found: {sig_file}")
+                continue
+
+            logger.debug(f"  Reading force signal file: {sig_file}")
+
+            # Calculate total channels in this force signal file
+            total_force_channels = sum(ft["NumberOfChannels"] for ft in force_tracks)
+
+            # Read force signal file as float64 (8 bytes per sample, per SampleSize in XML)
+            raw_force = np.fromfile(sig_path, dtype=np.float64)
+            force_samples = raw_force.size // total_force_channels
+
+            if raw_force.size % total_force_channels != 0:
+                logger.warning(f"    Force file size mismatch: {raw_force.size} values not divisible by {total_force_channels} channels")
+                raw_force = raw_force[:force_samples * total_force_channels]
+
+            logger.debug(f"    Read {raw_force.size} float64 values, {force_samples} samples × {total_force_channels} channels")
+
+            # Reshape to (total_channels, samples) using Fortran order
+            force_data = raw_force.reshape((total_force_channels, force_samples), order='F')
+            logger.debug(f"    Reshaped force data: {force_data.shape}")
+
+            # Extract each force track
+            for ft in force_tracks:
+                acq_channel = ft["AcquisitionChannel"]
+                subtitle = ft["SubTitle"]
+
+                if acq_channel >= total_force_channels:
+                    logger.warning(f"    Force signal channel {acq_channel} out of range (max {total_force_channels-1})")
+                    continue
+
+                # Extract the specific channel
+                channel_data = force_data[acq_channel:acq_channel+1, :]
+                logger.debug(f"    Extracted force channel {acq_channel}: {subtitle}, shape: {channel_data.shape}")
+
+                # Apply gain/scaling conversion
+                conv = ft["ADC_Range"] / (2 ** ft["ADC_Nbits"]) * 1000 / ft["Gain"]
+                channel_data = channel_data.astype(np.float64) * conv
+
+                force_signal_data.append(channel_data)
+                force_signal_descriptions.append(f"{subtitle}")
+
+                logger.debug(f"    Added force signal: {subtitle}")
+
+    # NOW: Process main signal files
     for sig_idx, sig_path in enumerate(signals):
         logger.debug(f"Processing signal file #{sig_idx}: {os.path.basename(sig_path)}")
 
@@ -435,11 +498,34 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
             logger.debug(f"  Processing track #{tr_idx}: {matched_track['Device']} - {matched_track['SubTitle']}")
             logger.debug(f"    Channels: {n_ch}, Offset: {offset}, IsControl: {is_control}")
 
+            # Skip control signals - they are not needed
+            if is_control:
+                logger.debug(f"    Skipping control signal track")
+                continue
+
             # Extract channels for this track using offset
             if offset + n_ch > total_channels:
                 logger.error(f"    Channel offset {offset} + {n_ch} exceeds total channels {total_channels}")
                 continue
 
+            # Build descriptions with grid information and check filters BEFORE processing data
+            grid_info = matched_track.get("GridInfo")
+            if grid_info:
+                logger.debug(f"    Using GridInfo: {grid_info['Name']} ({grid_info['NRow']}x{grid_info['NColumn']}, IED={grid_info['IED']}mm)")
+            else:
+                logger.debug(f"    No GridInfo, using fallback description format")
+
+            # Skip small control grids (quaternions, IMU, etc.) - they are not needed for EMG analysis
+            if grid_info:
+                ied = grid_info["IED"]
+                rows = grid_info["NRow"]
+                cols = grid_info["NColumn"]
+                electrodes = rows * cols
+                if ied == 1 and electrodes <= 4:
+                    logger.debug(f"    Skipping small control grid (IED={ied}, {rows}x{cols}={electrodes} electrodes)")
+                    continue
+
+            # Now extract and process the data
             block = all_data[offset:offset + n_ch, :]
             logger.debug(f"    Extracted block shape: {block.shape}")
 
@@ -447,10 +533,6 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
             conv = matched_track["ADC_Range"] / (2 ** matched_track["ADC_Nbits"]) * 1000 / matched_track["Gain"]
             block = block.astype(np.float64) * conv
             logger.debug(f"    Applied conversion factor: {conv:.6f}")
-
-            # Store each channel separately so we can insert force signals between grids
-            for ch_idx in range(block.shape[0]):
-                data_blocks.append(block[ch_idx:ch_idx+1, :])
 
             # Track sampling frequency
             if fs_main is None:
@@ -460,25 +542,22 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
                 if abs(fs_main - matched_track["SamplingFrequency"]) > 1e-9:
                     logger.warning(f"    Inconsistent sampling freq: expected {fs_main}, got {matched_track['SamplingFrequency']}")
 
-            # Build descriptions with grid information
-            grid_info = matched_track.get("GridInfo")
-            if grid_info:
-                logger.debug(f"    Using GridInfo: {grid_info['Name']} ({grid_info['NRow']}x{grid_info['NColumn']}, IED={grid_info['IED']}mm)")
-            else:
-                logger.debug(f"    No GridInfo, using fallback description format")
-
             # Get muscle information for this track
             muscle = matched_track.get("Muscle")
 
             # Check if this is an EMG grid (will need force signals after its refs)
             is_emg_grid = False
-            if grid_info and not is_control:
+            if grid_info:
                 ied = grid_info["IED"]
                 rows = grid_info["NRow"]
                 cols = grid_info["NColumn"]
                 electrodes = rows * cols
                 if ied > 1 or electrodes > 4:
                     is_emg_grid = True
+
+            # Store each channel separately so we can insert force signals between grids
+            for ch_idx in range(block.shape[0]):
+                data_blocks.append(block[ch_idx:ch_idx+1, :])
 
             for c in range(n_ch):
                 grid_id = matched_track.get("SubTitle", "Unknown")
@@ -487,26 +566,16 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
                 # IMPORTANT: REF channels should NOT have a grid pattern in their description
                 # so that file_io.py's grid parser adds them to refs instead of indices
 
-                if is_control:
-                    # Control signals: NO grid pattern, just REF marker
-                    desc = f"{grid_id} REF ch{c+1}"
-                elif grid_info:
-                    # Check if this is a valid EMG grid or a control grid
+                if grid_info:
+                    # Valid EMG grid: use its own pattern (no REF marker)
                     ied = grid_info["IED"]
                     rows = grid_info["NRow"]
                     cols = grid_info["NColumn"]
-                    electrodes = rows * cols
-
-                    if ied == 1 and electrodes <= 4:
-                        # Small control grid (quaternions, etc): NO pattern, just REF
-                        desc = f"{grid_id} REF ch{c+1}"
-                    else:
-                        # Valid EMG grid: use its own pattern (no REF marker)
-                        grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
-                        desc = f"{grid_id} {grid_pattern} ch{c+1}"
-                        # Add muscle information if available
-                        if muscle:
-                            desc += f" [MUSCLE:{muscle}]"
+                    grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                    desc = f"{grid_id} {grid_pattern} ch{c+1}"
+                    # Add muscle information if available
+                    if muscle:
+                        desc += f" [MUSCLE:{muscle}]"
                 else:
                     # No grid info: just description without pattern
                     desc = f"{grid_id} ch{c+1}"
@@ -514,70 +583,6 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
                 descriptions.append(desc)
 
             logger.debug(f"    Generated {n_ch} descriptions (total so far: {len(descriptions)})")
-
-    # Process force signals from TrapezoidalTracks XML files
-    force_signal_data = []
-    force_signal_descriptions = []
-
-    if trapezoidal_tracks:
-        logger.debug(f"Processing {len(trapezoidal_tracks)} force signal tracks")
-
-        # Group force signals by their signal file
-        force_signals_by_file = {}
-        for ft in trapezoidal_tracks:
-            sig_file = ft["SignalStreamPath"]
-            if sig_file not in force_signals_by_file:
-                force_signals_by_file[sig_file] = []
-            force_signals_by_file[sig_file].append(ft)
-
-        # Process each force signal file
-        for sig_file, force_tracks in force_signals_by_file.items():
-            sig_path = os.path.join(tmpdir, sig_file)
-
-            if not os.path.exists(sig_path):
-                logger.warning(f"  Force signal file not found: {sig_file}")
-                continue
-
-            logger.debug(f"  Reading force signal file: {sig_file}")
-
-            # Calculate total channels in this force signal file
-            total_force_channels = sum(ft["NumberOfChannels"] for ft in force_tracks)
-
-            # Read force signal file as float64 (8 bytes per sample)
-            raw_force = np.fromfile(sig_path, dtype=np.float64)
-            force_samples = raw_force.size // total_force_channels
-
-            if raw_force.size % total_force_channels != 0:
-                logger.warning(f"    Force file size mismatch: {raw_force.size} values not divisible by {total_force_channels} channels")
-                raw_force = raw_force[:force_samples * total_force_channels]
-
-            logger.debug(f"    Read {raw_force.size} float64 values, {force_samples} samples × {total_force_channels} channels")
-
-            # Reshape to (total_channels, samples) using Fortran order
-            force_data = raw_force.reshape((total_force_channels, force_samples), order='F')
-            logger.debug(f"    Reshaped force data: {force_data.shape}")
-
-            # Extract each force track
-            for ft in force_tracks:
-                acq_channel = ft["AcquisitionChannel"]
-                subtitle = ft["SubTitle"]
-
-                if acq_channel >= total_force_channels:
-                    logger.warning(f"    Force signal channel {acq_channel} out of range (max {total_force_channels-1})")
-                    continue
-
-                # Extract the specific channel
-                channel_data = force_data[acq_channel:acq_channel+1, :]
-                logger.debug(f"    Extracted force channel {acq_channel}: {subtitle}, shape: {channel_data.shape}")
-
-                # Apply gain/scaling conversion
-                conv = ft["ADC_Range"] / (2 ** ft["ADC_Nbits"]) * 1000 / ft["Gain"]
-                channel_data = channel_data.astype(np.float64) * conv
-
-                force_signal_data.append(channel_data)
-                force_signal_descriptions.append(f"{subtitle}")
-
-                logger.debug(f"    Added force signal: {subtitle}")
 
     # Calculate target sample count from EMG data
     target_samples = data_blocks[0].shape[1] if data_blocks else 0
@@ -734,26 +739,49 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
     for start, end, pattern in grid_boundaries:
         logger.debug(f"  Grid pattern {pattern}: channels {start}-{end-1}")
 
-    # Build final data by inserting force signals after each grid
+    # Build final data by inserting force signals as FIRST ref channels after each grid
     all_data_blocks = []
     all_descriptions = []
 
     if grid_boundaries and final_force_signals:
-        # Insert force signals after each grid
+        # Insert force signals as first ref channels after each grid
         current_idx = 0
 
         for grid_num, (grid_start, grid_end, grid_pattern) in enumerate(grid_boundaries):
-            # Add all channels up to and including this grid
-            for i in range(current_idx, grid_end):
-                all_data_blocks.append(data_blocks[i])
-                all_descriptions.append(descriptions[i])
+            # Separate EMG channels from REF channels within this grid
+            grid_emg_blocks = []
+            grid_emg_descs = []
+            grid_ref_blocks = []
+            grid_ref_descs = []
 
-            # Add force signals for this grid
-            logger.debug(f"Adding {len(final_force_signals)} force signals after grid {grid_num+1} (pattern: {grid_pattern})")
-            for force_idx, (force_data, force_desc) in enumerate(zip(final_force_signals, final_force_descriptions)):
-                all_data_blocks.append(force_data.copy())
-                all_descriptions.append(force_desc)
-                logger.debug(f"  Inserted '{force_desc}' after grid {grid_num+1}")
+            for i in range(current_idx, grid_end):
+                if "REF" in descriptions[i]:
+                    grid_ref_blocks.append(data_blocks[i])
+                    grid_ref_descs.append(descriptions[i])
+                else:
+                    grid_emg_blocks.append(data_blocks[i])
+                    grid_emg_descs.append(descriptions[i])
+
+            logger.debug(f"Grid {grid_num+1} (pattern: {grid_pattern}): {len(grid_emg_blocks)} EMG, {len(grid_ref_blocks)} REF channels")
+
+            # Add EMG channels first
+            all_data_blocks.extend(grid_emg_blocks)
+            all_descriptions.extend(grid_emg_descs)
+
+            # Only add force signals for actual EMG grids (skip pattern=None which are non-grid channels)
+            if grid_pattern is not None:
+                # Add force signals as FIRST ref channels (Performed Path, then Original Path)
+                logger.debug(f"Adding {len(final_force_signals)} force signals as first ref channels for grid {grid_num+1}")
+                for force_idx, (force_data, force_desc) in enumerate(zip(final_force_signals, final_force_descriptions)):
+                    all_data_blocks.append(force_data.copy())
+                    all_descriptions.append(force_desc)
+                    logger.debug(f"  Inserted '{force_desc}' as ref channel {force_idx} for grid {grid_num+1}")
+            else:
+                logger.debug(f"Skipping force signal insertion for non-grid channels (pattern=None)")
+
+            # Add remaining REF channels after force signals
+            all_data_blocks.extend(grid_ref_blocks)
+            all_descriptions.extend(grid_ref_descs)
 
             current_idx = grid_end
 
