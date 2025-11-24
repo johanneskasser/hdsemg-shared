@@ -698,46 +698,73 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
             logger.info(f"Excluded Original/Requested Path signal (flat or not found)")
 
     # Find grid boundaries by detecting transitions in grid patterns
+    # IMPORTANT: We need to detect grid boundaries from the track structure, not just pattern changes
+    # Multiple grids can have the same pattern (e.g., 2x HD10MM0804 on different muscles)
     import re
     grid_pattern_regex = re.compile(r'HD\d{2}MM\d{4}')
 
-    # Build a list that tracks: (index, grid_pattern, is_ref)
-    channel_info = []
-    for idx, desc in enumerate(descriptions):
-        match = grid_pattern_regex.search(desc)
-        is_ref = "REF" in desc
-        if match:
-            pattern = match.group()
-            channel_info.append((idx, pattern, is_ref))
-        else:
-            # No pattern - this is a reference channel or control signal
-            channel_info.append((idx, None, True))
+    # Build grid boundaries directly from track structure
+    # We'll track which tracks were processed and create boundaries at track level
+    grid_boundaries = []  # List of (start_idx, end_idx, grid_pattern, muscle_name)
+    channel_idx = 0
 
-    # Find grid boundaries: transitions where the grid pattern changes
-    grid_boundaries = []  # List of (start_idx, end_idx, grid_pattern)
-    if channel_info:
-        current_pattern = channel_info[0][1]
-        current_start = 0
+    # Iterate through matched tracks from the signal processing loop
+    # We need to reconstruct which tracks contributed to data_blocks
+    for sig_idx, sig_path in enumerate(signals):
+        # Find ALL tracks that reference this signal file
+        matched_tracks = []
+        for tr_idx, tr in enumerate(track_info_list):
+            if tr["SignalStreamPath"] == os.path.basename(sig_path):
+                matched_tracks.append((tr_idx, tr))
 
-        for i in range(1, len(channel_info)):
-            idx, pattern, is_ref = channel_info[i]
+        if not matched_tracks:
+            continue
 
-            # Grid boundary detected when:
-            # 1. Pattern changes (and not None)
-            # 2. Current channel is EMG (not ref) and pattern is different
-            if pattern != current_pattern and pattern is not None and not is_ref:
-                # End of previous grid
-                grid_boundaries.append((current_start, i, current_pattern))
-                current_pattern = pattern
-                current_start = i
+        # Process each track that uses this signal file
+        for tr_idx, matched_track in matched_tracks:
+            is_control = matched_track["IsControl"]
+            grid_info = matched_track.get("GridInfo")
+            n_ch = matched_track["NumberOfChannels"]
 
-        # Add last grid
-        if current_pattern is not None:
-            grid_boundaries.append((current_start, len(channel_info), current_pattern))
+            # Skip control signals - these are NOT added to data_blocks
+            if is_control:
+                continue
 
-    logger.debug(f"Detected {len(grid_boundaries)} grid boundaries")
-    for start, end, pattern in grid_boundaries:
-        logger.debug(f"  Grid pattern {pattern}: channels {start}-{end-1}")
+            # Skip small control grids (same filter as in signal processing) - NOT added to data_blocks
+            if grid_info:
+                ied = grid_info["IED"]
+                rows = grid_info["NRow"]
+                cols = grid_info["NColumn"]
+                electrodes = rows * cols
+                if ied == 1 and electrodes <= 4:
+                    continue
+
+            # This track was processed and added to data_blocks
+            # Determine grid pattern and check if this is a valid EMG grid
+            is_emg_grid = False
+            grid_pattern = None
+
+            if grid_info:
+                ied = grid_info["IED"]
+                rows = grid_info["NRow"]
+                cols = grid_info["NColumn"]
+                electrodes = rows * cols
+                if ied > 1 or electrodes > 4:
+                    is_emg_grid = True
+                    grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+
+            # Only create boundaries for valid EMG grids
+            if is_emg_grid and grid_pattern:
+                muscle = matched_track.get("Muscle", "")
+                grid_boundaries.append((channel_idx, channel_idx + n_ch, grid_pattern, muscle))
+                logger.debug(f"  Track #{tr_idx}: Grid boundary [{channel_idx}:{channel_idx + n_ch}], pattern={grid_pattern}, muscle={muscle}")
+
+            # Increment channel_idx for all processed tracks (those that passed the skip filters)
+            channel_idx += n_ch
+
+    logger.debug(f"Detected {len(grid_boundaries)} grid boundaries from track structure")
+    for start, end, pattern, muscle in grid_boundaries:
+        logger.debug(f"  Grid pattern {pattern} ({muscle}): channels {start}-{end-1}")
 
     # Build final data by inserting force signals as FIRST ref channels after each grid
     all_data_blocks = []
@@ -747,7 +774,7 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
         # Insert force signals as first ref channels after each grid
         current_idx = 0
 
-        for grid_num, (grid_start, grid_end, grid_pattern) in enumerate(grid_boundaries):
+        for grid_num, (grid_start, grid_end, grid_pattern, muscle) in enumerate(grid_boundaries):
             # Separate EMG channels from REF channels within this grid
             grid_emg_blocks = []
             grid_emg_descs = []
@@ -762,7 +789,7 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
                     grid_emg_blocks.append(data_blocks[i])
                     grid_emg_descs.append(descriptions[i])
 
-            logger.debug(f"Grid {grid_num+1} (pattern: {grid_pattern}): {len(grid_emg_blocks)} EMG, {len(grid_ref_blocks)} REF channels")
+            logger.debug(f"Grid {grid_num+1} (pattern: {grid_pattern}, muscle: {muscle}): {len(grid_emg_blocks)} EMG, {len(grid_ref_blocks)} REF channels")
 
             # Add EMG channels first
             all_data_blocks.extend(grid_emg_blocks)

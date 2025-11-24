@@ -160,16 +160,24 @@ class EMGFile:
             # Check if within tolerance of the last index
             return abs(new_idx - indices[-1]) <= tolerance
 
-        def find_or_create_grid(scale: int, rows: int, cols: int, idx: int) -> dict:
+        def find_or_create_grid(scale: int, rows: int, cols: int, idx: int, muscle: Optional[str] = None) -> dict:
             """Find existing grid with matching specs and contiguous indices, or create new one."""
             # Look for existing grid with same specs
             base_key = f"{scale}mm_{rows}x{cols}"
 
             for grid_inst in grid_instances:
-                if (grid_inst["ied_mm"] == scale and
-                    grid_inst["rows"] == rows and
-                    grid_inst["cols"] == cols and
-                    is_contiguous(grid_inst["indices"], idx)):
+                # Match by specs, contiguity, AND muscle (if available)
+                specs_match = (grid_inst["ied_mm"] == scale and
+                              grid_inst["rows"] == rows and
+                              grid_inst["cols"] == cols)
+
+                # If muscle info is available, use it to differentiate grids
+                if muscle is not None and grid_inst.get("muscle") is not None:
+                    muscle_match = grid_inst["muscle"] == muscle
+                else:
+                    muscle_match = True  # No muscle info, don't use for matching
+
+                if specs_match and muscle_match and is_contiguous(grid_inst["indices"], idx):
                     return grid_inst
 
             # No contiguous grid found, create new instance
@@ -216,13 +224,20 @@ class EMGFile:
             m = pattern.search(txt)
             if m:
                 scale, rows, cols = map(int, m.groups())
-                current_grid = find_or_create_grid(scale, rows, cols, idx)
+
+                # Extract muscle information if present (do this BEFORE find_or_create_grid)
+                muscle = None
+                muscle_match = muscle_pattern.search(txt)
+                if muscle_match:
+                    muscle = muscle_match.group(1).strip()
+
+                # Pass muscle info to find_or_create_grid for proper differentiation
+                current_grid = find_or_create_grid(scale, rows, cols, idx, muscle)
                 current_grid["indices"].append(idx)
 
-                # Extract muscle information if present
-                muscle_match = muscle_pattern.search(txt)
-                if muscle_match and current_grid["muscle"] is None:
-                    current_grid["muscle"] = muscle_match.group(1).strip()
+                # Store muscle info in grid if not already set
+                if muscle and current_grid["muscle"] is None:
+                    current_grid["muscle"] = muscle
             else:
                 if current_grid:
                     # Support both "requested path" and "original path" for the requested/original path index
