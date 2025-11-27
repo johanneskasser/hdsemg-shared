@@ -66,6 +66,10 @@
 <li>
     <a href="../preprocessing/" class="dropdown-item">preprocessing</a>
 </li>
+                                    
+<li>
+    <a href="../global_parameters/" class="dropdown-item">global_parameters</a>
+</li>
                                 </ul>
                             </li>
                             <li class="nav-item">
@@ -112,6 +116,10 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#novecento-support" class="nav-link">Novecento+ Support</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#under-the-hood" class="nav-link">Under the Hood</a>
               <ul class="nav flex-column">
               </ul>
@@ -135,6 +143,7 @@
 <p>The <strong><code>hdsemg_shared.fileio</code></strong> module provides a interface to:</p>
 <ul>
 <li>Load HD-sEMG data from MATLAB (<code>.mat</code>), OTB+ (<code>.otb+</code>, <code>.otb</code>) or OTB4 (<code>.otb4</code>) files</li>
+<li>Support for <strong>Novecento+</strong> device files with multi-track recordings and control signals</li>
 <li>Automatically sanitize and reshape the data/time arrays</li>
 <li>Extract electrode‐grid metadata (rows, columns, IED, reference channels, etc.)</li>
 <li>Cache remote grid‐configuration JSON for one week</li>
@@ -225,6 +234,68 @@ class Grid:
 </li>
 </ul>
 <hr />
+<h2 id="novecento-support">Novecento+ Support</h2>
+<p>The library fully supports <strong>Novecento+</strong> (OTBiolab) files in <code>.otb4</code> format. These files have unique characteristics:</p>
+<h3 id="multi-track-signal-files">Multi-Track Signal Files</h3>
+<p>Novecento+ recordings store multiple data tracks in the same signal file (<code>.sig</code>), distinguished by:</p>
+<ul>
+<li><strong><code>ChannelOffsetInSubPacket</code></strong>: Starting position of each track's channels within the file</li>
+<li><strong><code>IsControl</code></strong>: Flag indicating control/reference signals (quaternions, buffer, ramp, etc.)</li>
+<li><strong>Grid metadata</strong> in XML <code>&lt;Description&gt;</code> elements (<code>&lt;Name&gt;</code>, <code>&lt;NRow&gt;</code>, <code>&lt;NColumn&gt;</code>, <code>&lt;IED&gt;</code>)</li>
+</ul>
+<h3 id="grid-extraction">Grid Extraction</h3>
+<p>The loader automatically:</p>
+<ol>
+<li>Parses grid information from <code>Tracks_000.xml</code> file</li>
+<li>Extracts <strong>EMG channels</strong> (channels with valid grid patterns like <code>HD08MM1305</code>)</li>
+<li>Identifies <strong>reference channels</strong> (control signals, quaternions, buffer, ramp)</li>
+<li>Assigns reference channels to the appropriate EMG grid based on their position in the file</li>
+</ol>
+<h3 id="channel-organization">Channel Organization</h3>
+<p>For Novecento+ files, channels are organized as:</p>
+<ul>
+<li><strong>EMG channels</strong> (<code>emg_indices</code>): Main electrode grid signals with <code>HD{IED}MM{rows}{cols}</code> pattern</li>
+<li><strong>Reference channels</strong> (<code>ref_indices</code>): Control signals, quaternions, buffer, ramp, and auxiliary inputs marked with <code>REF</code> in descriptions</li>
+</ul>
+<h3 id="example-novecento-file">Example: Novecento+ File</h3>
+<pre><code class="language-python"># Load Novecento+ OTB4 file
+emg = EMGFile.load(&quot;recording.otb4&quot;)
+
+# Main EMG grid (e.g., 5x13 = 65 electrodes, 64 active)
+main_grid = emg.grids[0]
+print(f&quot;EMG Grid: {main_grid.rows}x{main_grid.cols}, IED={main_grid.ied_mm}mm&quot;)
+print(f&quot;EMG channels: {len(main_grid.emg_indices)}&quot;)
+print(f&quot;Reference channels: {len(main_grid.ref_indices)}&quot;)
+
+# Access EMG data only
+emg_data = emg.data[:, main_grid.emg_indices]
+
+# Access reference signals (quaternions, control signals, etc.)
+ref_data = emg.data[:, main_grid.ref_indices]
+
+# Check which channels are references
+for idx in main_grid.ref_indices:
+    desc = emg.description[idx]
+    print(f&quot;Ref channel {idx}: {desc}&quot;)
+</code></pre>
+<h3 id="supported-signal-types">Supported Signal Types</h3>
+<p>Novecento+ files may contain:</p>
+<ul>
+<li><strong>HD-sEMG grids</strong>: Main EMG electrode arrays (e.g., HD08MM1305, HD08MM0513)</li>
+<li><strong>Quaternions</strong>: IMU orientation data (4 channels, 2x2 layout)</li>
+<li><strong>Buffer/Ramp</strong>: Device control signals (1 channel each)</li>
+<li><strong>AUX inputs</strong>: Auxiliary analog inputs (16 channels, 2kHz)</li>
+<li><strong>Control signals</strong>: Additional device status channels (8 channels, 8kHz)</li>
+<li><strong>Load cells</strong>: Force/torque sensors (1+ channels)</li>
+</ul>
+<h3 id="technical-details">Technical Details</h3>
+<ul>
+<li><strong>Data format</strong>: int32 (Novecento+) converted to float64 with appropriate scaling</li>
+<li><strong>Conversion</strong>: <code>ADC_Range / (2^ADC_Nbits) * 1000 / Gain</code></li>
+<li><strong>Fortran-order reshaping</strong>: Data is reshaped as <code>(channels, samples, order='F')</code></li>
+<li><strong>Mixed sampling rates</strong>: Main EMG at 2kHz, control signals at 8kHz (automatically trimmed to match)</li>
+</ul>
+<hr />
 <h2 id="under-the-hood">Under the Hood</h2>
 <ul>
 <li>
@@ -234,7 +305,11 @@ class Grid:
 <p>MATLAB (<code>.mat</code>) → <code>MatFileIO.load</code></p>
 </li>
 <li>OTB+ / OTB (<code>.otb+</code>, <code>.otb</code>) → <code>otb_plus_file_io.load_otb_file</code></li>
-<li>OTB4 (<code>.otb4</code>) → <code>otb_4_file_io.load_otb4_file</code></li>
+<li>OTB4 (<code>.otb4</code>) → <code>otb_4_file_io.load_otb4_file</code><ul>
+<li><strong>Novecento+</strong> device detection and multi-track loading</li>
+<li>Grid metadata extraction from XML</li>
+</ul>
+</li>
 <li><strong>Sanitization</strong>: ensures <code>data</code> is 2-D (samples × channels) and <code>time</code> is 1-D, swapping axes if needed.</li>
 <li><strong>Grid JSON cache</strong>: fetched from Google Drive once per week, stored in <code>~/.hdsemg_cache/</code>.</li>
 </ul>
@@ -358,15 +433,19 @@ EMGFile        </code>
     <span class="k">def</span><span class="w"> </span><span class="nf">grids</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Grid</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Lazily extract grid metadata from `self.description` and return a list</span>
-<span class="sd">        of Grid instances.</span>
+<span class="sd">        of Grid instances. Handles multiple grids with identical specifications</span>
+<span class="sd">        by detecting non-contiguous channel indices.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span>
 
         <span class="n">desc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span>
         <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;HD(\d</span><span class="si">{2}</span><span class="s2">)MM(\d</span><span class="si">{2}</span><span class="s2">)(\d</span><span class="si">{2}</span><span class="s2">)&quot;</span><span class="p">)</span>
-        <span class="n">info</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">current_key</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">muscle_pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[MUSCLE:(.*?)\]&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Instead of dict, use list to allow multiple grids with same specs</span>
+        <span class="n">grid_instances</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">current_grid</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># pull in (or fetch) the grid-data cache</span>
         <span class="n">grid_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_grid_data</span><span class="p">()</span>
@@ -396,37 +475,103 @@ EMGFile        </code>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                 <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
 
+        <span class="k">def</span><span class="w"> </span><span class="nf">is_contiguous</span><span class="p">(</span><span class="n">indices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">new_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Check if new_idx is contiguous with existing indices.&quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">indices</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="c1"># Check if within tolerance of the last index</span>
+            <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_idx</span> <span class="o">-</span> <span class="n">indices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tolerance</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">find_or_create_grid</span><span class="p">(</span><span class="n">scale</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">muscle</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Find existing grid with matching specs and contiguous indices, or create new one.&quot;&quot;&quot;</span>
+            <span class="c1"># Look for existing grid with same specs</span>
+            <span class="n">base_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scale</span><span class="si">}</span><span class="s2">mm_</span><span class="si">{</span><span class="n">rows</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">cols</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="k">for</span> <span class="n">grid_inst</span> <span class="ow">in</span> <span class="n">grid_instances</span><span class="p">:</span>
+                <span class="c1"># Match by specs, contiguity, AND muscle (if available)</span>
+                <span class="n">specs_match</span> <span class="o">=</span> <span class="p">(</span><span class="n">grid_inst</span><span class="p">[</span><span class="s2">&quot;ied_mm&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">scale</span> <span class="ow">and</span>
+                              <span class="n">grid_inst</span><span class="p">[</span><span class="s2">&quot;rows&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">rows</span> <span class="ow">and</span>
+                              <span class="n">grid_inst</span><span class="p">[</span><span class="s2">&quot;cols&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">cols</span><span class="p">)</span>
+
+                <span class="c1"># If muscle info is available, use it to differentiate grids</span>
+                <span class="k">if</span> <span class="n">muscle</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">grid_inst</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;muscle&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">muscle_match</span> <span class="o">=</span> <span class="n">grid_inst</span><span class="p">[</span><span class="s2">&quot;muscle&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">muscle</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">muscle_match</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># No muscle info, don&#39;t use for matching</span>
+
+                <span class="k">if</span> <span class="n">specs_match</span> <span class="ow">and</span> <span class="n">muscle_match</span> <span class="ow">and</span> <span class="n">is_contiguous</span><span class="p">(</span><span class="n">grid_inst</span><span class="p">[</span><span class="s2">&quot;indices&quot;</span><span class="p">],</span> <span class="n">idx</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">grid_inst</span>
+
+            <span class="c1"># No contiguous grid found, create new instance</span>
+            <span class="c1"># Look up electrode count from cache</span>
+            <span class="n">prod</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;HD</span><span class="si">{</span><span class="n">scale</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">MM</span><span class="si">{</span><span class="n">rows</span><span class="si">:</span><span class="s2">02d</span><span class="si">}{</span><span class="n">cols</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="c1"># Create transposed pattern</span>
+            <span class="n">prod_transposed</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;HD</span><span class="si">{</span><span class="n">scale</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">MM</span><span class="si">{</span><span class="n">cols</span><span class="si">:</span><span class="s2">02d</span><span class="si">}{</span><span class="n">rows</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+
+            <span class="n">elec</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid_data</span><span class="p">:</span>
+                <span class="n">g_prod_upper</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;product&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">g_prod_upper</span> <span class="o">==</span> <span class="n">prod</span> <span class="ow">or</span> <span class="n">g_prod_upper</span> <span class="o">==</span> <span class="n">prod_transposed</span><span class="p">:</span>
+                    <span class="n">elec</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;electrodes&quot;</span><span class="p">]</span>
+                    <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">elec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">elec</span> <span class="o">=</span> <span class="n">rows</span> <span class="o">*</span> <span class="n">cols</span>
+
+            <span class="c1"># Create unique key with instance counter if needed</span>
+            <span class="n">instance_num</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid_instances</span>
+                             <span class="k">if</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;ied_mm&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">scale</span> <span class="ow">and</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;rows&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">rows</span> <span class="ow">and</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;cols&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">cols</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">instance_num</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">grid_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_key</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">instance_num</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">grid_key</span> <span class="o">=</span> <span class="n">base_key</span>
+
+            <span class="n">new_grid</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;rows&quot;</span><span class="p">:</span> <span class="n">rows</span><span class="p">,</span>
+                <span class="s2">&quot;cols&quot;</span><span class="p">:</span> <span class="n">cols</span><span class="p">,</span>
+                <span class="s2">&quot;ied_mm&quot;</span><span class="p">:</span> <span class="n">scale</span><span class="p">,</span>
+                <span class="s2">&quot;electrodes&quot;</span><span class="p">:</span> <span class="n">elec</span><span class="p">,</span>
+                <span class="s2">&quot;indices&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                <span class="s2">&quot;refs&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                <span class="s2">&quot;req_idx&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;perf_idx&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;grid_key&quot;</span><span class="p">:</span> <span class="n">grid_key</span><span class="p">,</span>
+                <span class="s2">&quot;muscle&quot;</span><span class="p">:</span> <span class="kc">None</span>
+            <span class="p">}</span>
+            <span class="n">grid_instances</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_grid</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">new_grid</span>
+
         <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ent</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">desc</span><span class="p">):</span>
             <span class="n">txt</span> <span class="o">=</span> <span class="n">entry_text</span><span class="p">(</span><span class="n">ent</span><span class="p">)</span>
             <span class="n">m</span> <span class="o">=</span> <span class="n">pattern</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">txt</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
                 <span class="n">scale</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">groups</span><span class="p">())</span>
-                <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">rows</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">cols</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
-                    <span class="c1"># look up in JSON cache</span>
-                    <span class="n">prod</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-                    <span class="n">elec</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
-                        <span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="s2">&quot;electrodes&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid_data</span> <span class="k">if</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;product&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="n">prod</span><span class="p">),</span>
-                        <span class="n">rows</span> <span class="o">*</span> <span class="n">cols</span>
-                    <span class="p">)</span>
-                    <span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                        <span class="s2">&quot;rows&quot;</span><span class="p">:</span> <span class="n">rows</span><span class="p">,</span> <span class="s2">&quot;cols&quot;</span><span class="p">:</span> <span class="n">cols</span><span class="p">,</span> <span class="s2">&quot;ied_mm&quot;</span><span class="p">:</span> <span class="n">scale</span><span class="p">,</span>
-                        <span class="s2">&quot;electrodes&quot;</span><span class="p">:</span> <span class="n">elec</span><span class="p">,</span> <span class="s2">&quot;indices&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;refs&quot;</span><span class="p">:</span> <span class="p">[],</span>
-                        <span class="s2">&quot;req_idx&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;perf_idx&quot;</span><span class="p">:</span> <span class="kc">None</span>
-                    <span class="p">}</span>
-                <span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s2">&quot;indices&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
-                <span class="n">current_key</span> <span class="o">=</span> <span class="n">key</span>
+
+                <span class="c1"># Extract muscle information if present (do this BEFORE find_or_create_grid)</span>
+                <span class="n">muscle</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">muscle_match</span> <span class="o">=</span> <span class="n">muscle_pattern</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">txt</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">muscle_match</span><span class="p">:</span>
+                    <span class="n">muscle</span> <span class="o">=</span> <span class="n">muscle_match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                <span class="c1"># Pass muscle info to find_or_create_grid for proper differentiation</span>
+                <span class="n">current_grid</span> <span class="o">=</span> <span class="n">find_or_create_grid</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">muscle</span><span class="p">)</span>
+                <span class="n">current_grid</span><span class="p">[</span><span class="s2">&quot;indices&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+
+                <span class="c1"># Store muscle info in grid if not already set</span>
+                <span class="k">if</span> <span class="n">muscle</span> <span class="ow">and</span> <span class="n">current_grid</span><span class="p">[</span><span class="s2">&quot;muscle&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">current_grid</span><span class="p">[</span><span class="s2">&quot;muscle&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">muscle</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">current_key</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="s2">&quot;requested path&quot;</span> <span class="ow">in</span> <span class="n">txt</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-                        <span class="n">info</span><span class="p">[</span><span class="n">current_key</span><span class="p">][</span><span class="s2">&quot;requested_path_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
+                <span class="k">if</span> <span class="n">current_grid</span><span class="p">:</span>
+                    <span class="c1"># Support both &quot;requested path&quot; and &quot;original path&quot; for the requested/original path index</span>
+                    <span class="k">if</span> <span class="s2">&quot;requested path&quot;</span> <span class="ow">in</span> <span class="n">txt</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;original path&quot;</span> <span class="ow">in</span> <span class="n">txt</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                        <span class="n">current_grid</span><span class="p">[</span><span class="s2">&quot;req_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
                     <span class="k">if</span> <span class="s2">&quot;performed path&quot;</span> <span class="ow">in</span> <span class="n">txt</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-                        <span class="n">info</span><span class="p">[</span><span class="n">current_key</span><span class="p">][</span><span class="s2">&quot;performed_path_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
-                    <span class="n">info</span><span class="p">[</span><span class="n">current_key</span><span class="p">][</span><span class="s2">&quot;refs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">txt</span><span class="p">))</span>
+                        <span class="n">current_grid</span><span class="p">[</span><span class="s2">&quot;perf_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
+                    <span class="n">current_grid</span><span class="p">[</span><span class="s2">&quot;refs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">txt</span><span class="p">))</span>
 
         <span class="c1"># build Grid objects</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">gi</span> <span class="ow">in</span> <span class="n">info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">gi</span> <span class="ow">in</span> <span class="n">grid_instances</span><span class="p">:</span>
             <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
                 <span class="n">emg_indices</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">&quot;indices&quot;</span><span class="p">],</span>
                 <span class="n">ref_indices</span><span class="o">=</span><span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">gi</span><span class="p">[</span><span class="s2">&quot;refs&quot;</span><span class="p">]],</span>
@@ -434,9 +579,10 @@ EMGFile        </code>
                 <span class="n">cols</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">&quot;cols&quot;</span><span class="p">],</span>
                 <span class="n">ied_mm</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">&quot;ied_mm&quot;</span><span class="p">],</span>
                 <span class="n">electrodes</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">&quot;electrodes&quot;</span><span class="p">],</span>
-                <span class="n">grid_key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
-                <span class="n">requested_path_idx</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;requested_path_idx&quot;</span><span class="p">),</span>
-                <span class="n">performed_path_idx</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;performed_path_idx&quot;</span><span class="p">),</span>
+                <span class="n">grid_key</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">&quot;grid_key&quot;</span><span class="p">],</span>
+                <span class="n">muscle</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;muscle&quot;</span><span class="p">),</span>
+                <span class="n">requested_path_idx</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;req_idx&quot;</span><span class="p">),</span>
+                <span class="n">performed_path_idx</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;perf_idx&quot;</span><span class="p">),</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
 
@@ -533,10 +679,12 @@ EMGFile        </code>
     <div class="doc doc-contents ">
 
       <p>Lazily extract grid metadata from <code>self.description</code> and return a list
-of Grid instances.</p>
+of Grid instances. Handles multiple grids with identical specifications
+by detecting non-contiguous channel indices.</p>
     </div>
 
   </div>
+
 
 
 
@@ -693,12 +841,95 @@ Grid        </code>
 
     <div class="doc doc-contents ">
 
-      <p>Grid(emg_indices: list[int], ref_indices: list[int], rows: int, cols: int, ied_mm: int, electrodes: int, grid_key: str, grid_uid: str = <factory>, requested_path_idx: int | None = None, performed_path_idx: int | None = None)</p>
+      <p>Represents a high-density EMG electrode grid.</p>
 
+<p><strong>Attributes:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>emg_indices</code></td>
+        <td><code>list[int]</code></td>
+        <td><p>List of channel indices for EMG electrodes</p></td>
+      </tr>
+      <tr>
+        <td><code>ref_indices</code></td>
+        <td><code>list[int]</code></td>
+        <td><p>List of channel indices for reference electrodes</p></td>
+      </tr>
+      <tr>
+        <td><code>rows</code></td>
+        <td><code>int</code></td>
+        <td><p>Number of rows in the grid</p></td>
+      </tr>
+      <tr>
+        <td><code>cols</code></td>
+        <td><code>int</code></td>
+        <td><p>Number of columns in the grid</p></td>
+      </tr>
+      <tr>
+        <td><code>ied_mm</code></td>
+        <td><code>int</code></td>
+        <td><p>Inter-electrode distance in millimeters</p></td>
+      </tr>
+      <tr>
+        <td><code>electrodes</code></td>
+        <td><code>int</code></td>
+        <td><p>Total number of active electrodes</p></td>
+      </tr>
+      <tr>
+        <td><code>grid_key</code></td>
+        <td><code>str</code></td>
+        <td><p>Unique identifier key (format: "{ied}mm_{rows}x{cols}" or with "_N" suffix)</p></td>
+      </tr>
+      <tr>
+        <td><code>grid_uid</code></td>
+        <td><code>str</code></td>
+        <td><p>Unique UUID for this grid instance</p></td>
+      </tr>
+      <tr>
+        <td><code>muscle</code></td>
+        <td><code>str | None</code></td>
+        <td><p>Optional muscle name where grid is placed (extracted from OTB4 XML <Muscle> tag)</p></td>
+      </tr>
+      <tr>
+        <td><code>requested_path_idx</code></td>
+        <td><code>int | None</code></td>
+        <td><p>Optional index of "requested path" description entry</p></td>
+      </tr>
+      <tr>
+        <td><code>performed_path_idx</code></td>
+        <td><code>int | None</code></td>
+        <td><p>Optional index of "performed path" description entry</p></td>
+      </tr>
+  </tbody>
+</table>
         <details class="quote">
           <summary>Source code in <code>hdsemg_shared/fileio/file_io.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Grid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Represents a high-density EMG electrode grid.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        emg_indices: List of channel indices for EMG electrodes</span>
+<span class="sd">        ref_indices: List of channel indices for reference electrodes</span>
+<span class="sd">        rows: Number of rows in the grid</span>
+<span class="sd">        cols: Number of columns in the grid</span>
+<span class="sd">        ied_mm: Inter-electrode distance in millimeters</span>
+<span class="sd">        electrodes: Total number of active electrodes</span>
+<span class="sd">        grid_key: Unique identifier key (format: &quot;{ied}mm_{rows}x{cols}&quot; or with &quot;_N&quot; suffix)</span>
+<span class="sd">        grid_uid: Unique UUID for this grid instance</span>
+<span class="sd">        muscle: Optional muscle name where grid is placed (extracted from OTB4 XML &lt;Muscle&gt; tag)</span>
+<span class="sd">        requested_path_idx: Optional index of &quot;requested path&quot; description entry</span>
+<span class="sd">        performed_path_idx: Optional index of &quot;performed path&quot; description entry</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">emg_indices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="n">ref_indices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span>
@@ -707,14 +938,17 @@ Grid        </code>
     <span class="n">electrodes</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">grid_key</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">grid_uid</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()))</span>
-    <span class="n">requested_path_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">performed_path_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">muscle</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">requested_path_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">performed_path_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div>
         </details>
 
 
 
   <div class="doc doc-children">
+
+
 
 
 
