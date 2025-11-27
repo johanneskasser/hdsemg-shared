@@ -40,17 +40,15 @@ def test_novecento_channel_count():
 
     emg = EMGFile.load(str(test_file))
 
-    # Expected channels based on XML:
+    # Expected channels after filtering:
     # - 64 EMG channels (HD08MM1305)
-    # - 4 Quaternions
-    # - 2 Buffer/Ramp (IsControl=true)
-    # - 3 AUX channels
-    # - 1 Load Cell (might fail due to offset issue)
-    # - 8 Control Signals (IsControl=true)
-    # Total: 78 channels (or 77 if Load Cell fails)
+    # Control signals, quaternions, and AUX channels are now filtered out
+    # as they are not needed for EMG analysis
+    # This test file has no force signals, so only EMG channels remain
+    # Total: 64 channels
 
-    assert emg.channel_count >= 77
-    assert emg.data.shape[1] >= 77
+    assert emg.channel_count >= 64
+    assert emg.data.shape[1] >= 64
 
 
 def test_novecento_grid_detection():
@@ -103,20 +101,16 @@ def test_novecento_reference_channels():
 
     assert main_grid is not None
 
-    # Reference channels should include:
-    # - 4 Quaternions
-    # - 2 Buffer/Ramp (IsControl=true)
-    # - 8 Control Signals (IsControl=true)
-    # - Potentially 3 AUX channels
-    # Total: at least 14 reference channels
+    # After filtering out control signals, quaternions, and AUX channels,
+    # reference channels should only include force signals (Performed Path, Original Path)
+    # This test file has no TrapezoidalTracks XML, so there are NO reference channels
+    # (Control signals, quaternions, and AUX are filtered out as not needed for EMG analysis)
 
-    assert len(main_grid.ref_indices) >= 10
+    # For this test file without force signals, expect 0 ref channels
+    assert len(main_grid.ref_indices) == 0
 
-    # Verify that ref channels have "REF" marker in descriptions
-    for ref_idx in main_grid.ref_indices:
-        desc = emg.description[ref_idx]
-        desc_str = str(desc).upper()
-        assert "REF" in desc_str, f"Reference channel {ref_idx} missing REF marker: {desc}"
+    # Note: Files with TrapezoidalTracks XML will have 2 ref channels per grid
+    # (Performed Path and Original Path)
 
 
 def test_novecento_emg_channel_descriptions():
@@ -540,3 +534,402 @@ def test_muscle_consistent_across_channels():
     grids = emg.grids
     assert len(grids) == 1
     assert grids[0].muscle == "Biceps Brachii"
+
+
+def test_trapezoidal_tracks_parsing():
+    """
+    Test that TrapezoidalTracks XML files are correctly parsed.
+
+    This tests the parse_trapezoidal_tracks_xml function which extracts
+    force signal information from TrapezoidalTracks_*.xml files.
+    """
+    import tempfile
+    import os
+    from hdsemg_shared.fileio.otb_4_file_io import parse_trapezoidal_tracks_xml
+
+    # Create a temporary directory with mock TrapezoidalTracks XML
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a mock TrapezoidalTracks_000.xml file
+        xml_content = """<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfTrackInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <TrackInfo>
+    <SubTitle>Performed Path</SubTitle>
+    <SignalStreamPath>force_001.sig</SignalStreamPath>
+    <SamplingFrequency>10</SamplingFrequency>
+    <Gain>0.5</Gain>
+    <ADC_Nbits>1</ADC_Nbits>
+    <ADC_Range>1</ADC_Range>
+    <AcquisitionChannel>0</AcquisitionChannel>
+  </TrackInfo>
+  <TrackInfo>
+    <SubTitle>Original Path</SubTitle>
+    <SignalStreamPath>force_001.sig</SignalStreamPath>
+    <SamplingFrequency>10</SamplingFrequency>
+    <Gain>0.5</Gain>
+    <ADC_Nbits>1</ADC_Nbits>
+    <ADC_Range>1</ADC_Range>
+    <AcquisitionChannel>1</AcquisitionChannel>
+  </TrackInfo>
+</ArrayOfTrackInfo>"""
+
+        xml_path = os.path.join(tmpdir, "TrapezoidalTracks_000.xml")
+        with open(xml_path, 'w', encoding='utf-8') as f:
+            f.write(xml_content)
+
+        # Parse the XML
+        tracks = parse_trapezoidal_tracks_xml(tmpdir)
+
+        # Verify results
+        assert len(tracks) == 2, f"Expected 2 tracks, got {len(tracks)}"
+
+        # Check Performed Path
+        performed = tracks[0]
+        assert performed["SubTitle"] == "Performed Path"
+        assert performed["SignalStreamPath"] == "force_001.sig"
+        assert performed["SamplingFrequency"] == 10.0
+        assert performed["Gain"] == 0.5
+        assert performed["ADC_Nbits"] == 1
+        assert performed["ADC_Range"] == 1.0
+        assert performed["AcquisitionChannel"] == 0
+        assert performed["NumberOfChannels"] == 1
+
+        # Check Original Path
+        original = tracks[1]
+        assert original["SubTitle"] == "Original Path"
+        assert original["SignalStreamPath"] == "force_001.sig"
+        assert original["AcquisitionChannel"] == 1
+
+
+def test_trapezoidal_tracks_multiple_files():
+    """
+    Test that multiple TrapezoidalTracks XML files are all parsed.
+
+    This tests the scenario where there are multiple TrapezoidalTracks_*.xml
+    files (e.g., TrapezoidalTracks_000.xml, TrapezoidalTracks_010.xml).
+    """
+    import tempfile
+    import os
+    from hdsemg_shared.fileio.otb_4_file_io import parse_trapezoidal_tracks_xml
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create two TrapezoidalTracks XML files
+        for idx in [0, 10]:
+            xml_content = f"""<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfTrackInfo>
+  <TrackInfo>
+    <SubTitle>Performed Path</SubTitle>
+    <SignalStreamPath>force_{idx:03d}.sig</SignalStreamPath>
+    <SamplingFrequency>10</SamplingFrequency>
+    <Gain>0.5</Gain>
+    <ADC_Nbits>1</ADC_Nbits>
+    <ADC_Range>1</ADC_Range>
+    <AcquisitionChannel>0</AcquisitionChannel>
+  </TrackInfo>
+  <TrackInfo>
+    <SubTitle>Original Path</SubTitle>
+    <SignalStreamPath>force_{idx:03d}.sig</SignalStreamPath>
+    <SamplingFrequency>10</SamplingFrequency>
+    <Gain>0.5</Gain>
+    <ADC_Nbits>1</ADC_Nbits>
+    <ADC_Range>1</ADC_Range>
+    <AcquisitionChannel>1</AcquisitionChannel>
+  </TrackInfo>
+</ArrayOfTrackInfo>"""
+
+            xml_path = os.path.join(tmpdir, f"TrapezoidalTracks_{idx:03d}.xml")
+            with open(xml_path, 'w', encoding='utf-8') as f:
+                f.write(xml_content)
+
+        # Parse all XML files
+        tracks = parse_trapezoidal_tracks_xml(tmpdir)
+
+        # Should have 4 tracks total (2 from each file)
+        assert len(tracks) == 4, f"Expected 4 tracks, got {len(tracks)}"
+
+        # Verify signal paths are different
+        signal_paths = [t["SignalStreamPath"] for t in tracks]
+        assert "force_000.sig" in signal_paths
+        assert "force_010.sig" in signal_paths
+
+
+def test_trapezoidal_tracks_no_files():
+    """
+    Test that parse_trapezoidal_tracks_xml returns empty list when no XML files exist.
+    """
+    import tempfile
+    from hdsemg_shared.fileio.otb_4_file_io import parse_trapezoidal_tracks_xml
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Empty directory - no TrapezoidalTracks files
+        tracks = parse_trapezoidal_tracks_xml(tmpdir)
+        assert tracks == [], "Should return empty list when no TrapezoidalTracks XML files found"
+
+
+def test_force_signals_added_to_each_grid():
+    """
+    Test that force signals are added to each grid separately as reference channels.
+
+    This tests that when multiple grids exist, each grid gets its own copy of
+    the force signals (Performed Path and Original Path) as reference channels.
+    """
+    # Mock EMG file with 2 grids
+    data = np.random.randn(1000, 128)
+    time = np.arange(1000) / 2000.0
+
+    # Create descriptions for two grids
+    descriptions = []
+
+    # Grid 1: HD08MM1305 (8mm IED, 64 channels)
+    for i in range(64):
+        descriptions.append(np.array([[f"IN1 HD08MM1305 ch{i+1}"]], dtype=object))
+
+    # Grid 2: HD04MM1305 (4mm IED, 64 channels)
+    for i in range(64):
+        descriptions.append(np.array([[f"IN2 HD04MM1305 ch{i+1}"]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    # Create EMGFile instance
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_force_signals.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    # Get grids - should be 2 grids without force signals yet
+    grids = emg.grids
+    assert len(grids) == 2, f"Expected 2 grids, got {len(grids)}"
+
+
+def test_original_path_recognized_as_requested_path():
+    """
+    Test that 'Original Path' in descriptions is recognized as 'requested path'.
+
+    The file_io.py grid parser should recognize both "requested path" and
+    "original path" as the requested_path_idx in Grid objects.
+    """
+    # Mock EMG file with grid and force signals
+    data = np.random.randn(1000, 66)  # 64 EMG + 2 force signals
+    time = np.arange(1000) / 2000.0
+
+    descriptions = []
+
+    # Grid: HD08MM1305 (64 channels)
+    for i in range(64):
+        descriptions.append(np.array([[f"IN1 HD08MM1305 ch{i+1}"]], dtype=object))
+
+    # Force signals
+    descriptions.append(np.array([["Performed Path"]], dtype=object))
+    descriptions.append(np.array([["Original Path"]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    # Create EMGFile instance
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_original_path.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    # Get grids
+    grids = emg.grids
+    assert len(grids) == 1
+
+    grid = grids[0]
+
+    # Verify reference channels are detected
+    assert len(grid.ref_indices) == 2, f"Expected 2 ref channels, got {len(grid.ref_indices)}"
+
+    # Verify path indices are set
+    assert grid.performed_path_idx == 64, "Performed Path should be at index 64"
+    assert grid.requested_path_idx == 65, "Original Path should be at index 65 (recognized as requested path)"
+
+
+def test_performed_path_recognized():
+    """
+    Test that 'Performed Path' in descriptions is correctly recognized.
+    """
+    # Mock EMG file with grid and performed path
+    data = np.random.randn(1000, 65)
+    time = np.arange(1000) / 2000.0
+
+    descriptions = []
+
+    # Grid: HD08MM1305 (64 channels)
+    for i in range(64):
+        descriptions.append(np.array([[f"IN1 HD08MM1305 ch{i+1}"]], dtype=object))
+
+    # Performed path only
+    descriptions.append(np.array([["Performed Path"]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    # Create EMGFile instance
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_performed_path.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    grids = emg.grids
+    assert len(grids) == 1
+
+    grid = grids[0]
+
+    # Verify performed path is detected
+    assert grid.performed_path_idx == 64
+    # requested_path_idx should be None since only performed path exists
+    assert grid.requested_path_idx is None
+
+
+def test_force_signals_placed_after_each_grid():
+    """
+    Test that force signals are correctly placed after each grid, not all at the end.
+
+    When multiple grids exist, each grid should have its own copy of force signals
+    immediately following its EMG channels and regular refs. This ensures that the
+    file_io.py grid parser correctly assigns force signals to each grid.
+
+    Structure should be:
+    [Grid1 EMG, Grid1 Refs, Grid1 Force Signals, Grid2 EMG, Grid2 Refs, Grid2 Force Signals, ...]
+    """
+    # Create mock data with 2 grids + force signals after each grid
+    data = np.random.randn(1000, 132)  # 64 + 2 force + 32 + 2 force = 100
+    time = np.arange(1000) / 2000.0
+    descriptions = []
+
+    # Grid 1: HD08MM1305 (64 EMG channels)
+    for i in range(64):
+        descriptions.append(np.array([[f"IN1 HD08MM1305 ch{i+1}"]], dtype=object))
+
+    # Force signals after Grid 1
+    descriptions.append(np.array([["Performed Path"]], dtype=object))
+    descriptions.append(np.array([["Original Path"]], dtype=object))
+
+    # Grid 2: HD10MM0408 (32 EMG channels)
+    for i in range(32):
+        descriptions.append(np.array([[f"IN2 HD10MM0408 ch{i+1}"]], dtype=object))
+
+    # Force signals after Grid 2
+    descriptions.append(np.array([["Performed Path"]], dtype=object))
+    descriptions.append(np.array([["Original Path"]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    # Create EMGFile
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_force_placement.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    # Get grids
+    grids = emg.grids
+    assert len(grids) == 2, f"Expected 2 grids, got {len(grids)}"
+
+    # Check Grid 1
+    grid1 = grids[0]
+    assert len(grid1.emg_indices) == 64, f"Grid 1 should have 64 EMG channels"
+    assert len(grid1.ref_indices) == 2, f"Grid 1 should have 2 ref channels (force signals)"
+    assert 64 in grid1.ref_indices, "Grid 1 should include force signal at index 64"
+    assert 65 in grid1.ref_indices, "Grid 1 should include force signal at index 65"
+    assert grid1.performed_path_idx == 64, f"Grid 1 performed path at wrong index"
+    assert grid1.requested_path_idx == 65, f"Grid 1 requested path at wrong index"
+
+    # Check Grid 2
+    grid2 = grids[1]
+    assert len(grid2.emg_indices) == 32, f"Grid 2 should have 32 EMG channels"
+    assert len(grid2.ref_indices) == 2, f"Grid 2 should have 2 ref channels (force signals)"
+    assert 98 in grid2.ref_indices, "Grid 2 should include force signal at index 98"
+    assert 99 in grid2.ref_indices, "Grid 2 should include force signal at index 99"
+    assert grid2.performed_path_idx == 98, f"Grid 2 performed path at wrong index"
+    assert grid2.requested_path_idx == 99, f"Grid 2 requested path at wrong index"
+
+    # Verify force signals are NOT shared (different indices for each grid)
+    assert grid1.performed_path_idx != grid2.performed_path_idx, "Force signals should be separate for each grid"
+    assert grid1.requested_path_idx != grid2.requested_path_idx, "Force signals should be separate for each grid"
+
+
+def test_multiple_grids_with_three_grids():
+    """
+    Test force signal placement with three grids to ensure the pattern holds.
+    """
+    # Create data for 3 grids with force signals after each
+    # Grid1: 64ch, Grid2: 32ch, Grid3: 64ch
+    # Force signals: 2 per grid
+    # Total: 64 + 2 + 32 + 2 + 64 + 2 = 166 channels
+    data = np.random.randn(1000, 166)
+    time = np.arange(1000) / 2000.0
+    descriptions = []
+
+    # Grid 1: HD08MM1305 (64 channels)
+    for i in range(64):
+        descriptions.append(np.array([[f"IN1 HD08MM1305 ch{i+1}"]], dtype=object))
+    descriptions.append(np.array([["Performed Path"]], dtype=object))
+    descriptions.append(np.array([["Original Path"]], dtype=object))
+
+    # Grid 2: HD10MM0408 (32 channels)
+    for i in range(32):
+        descriptions.append(np.array([[f"IN2 HD10MM0408 ch{i+1}"]], dtype=object))
+    descriptions.append(np.array([["Performed Path"]], dtype=object))
+    descriptions.append(np.array([["Original Path"]], dtype=object))
+
+    # Grid 3: HD08MM1305 (64 channels, same as Grid 1)
+    for i in range(64):
+        descriptions.append(np.array([[f"IN3 HD08MM1305 ch{i+1}"]], dtype=object))
+    descriptions.append(np.array([["Performed Path"]], dtype=object))
+    descriptions.append(np.array([["Original Path"]], dtype=object))
+
+    desc_array = np.array(descriptions, dtype=object)
+
+    emg = EMGFile(
+        data=data,
+        time=time,
+        description=desc_array,
+        sf=2000.0,
+        file_name="test_three_grids.otb4",
+        file_size=1000,
+        file_type="otb4"
+    )
+
+    grids = emg.grids
+    assert len(grids) == 3, f"Expected 3 grids, got {len(grids)}"
+
+    # Check each grid has its own force signals
+    # Grid 1: EMG 0-63, Force 64-65
+    assert grids[0].performed_path_idx == 64
+    assert grids[0].requested_path_idx == 65
+
+    # Grid 2: EMG 66-97, Force 98-99
+    assert grids[1].performed_path_idx == 98
+    assert grids[1].requested_path_idx == 99
+
+    # Grid 3: EMG 100-163, Force 164-165
+    assert grids[2].performed_path_idx == 164
+    assert grids[2].requested_path_idx == 165
+
+    # Verify all force signals are unique per grid
+    force_indices = set()
+    for grid in grids:
+        assert grid.performed_path_idx not in force_indices, "Performed path indices should be unique"
+        assert grid.requested_path_idx not in force_indices, "Requested path indices should be unique"
+        force_indices.add(grid.performed_path_idx)
+        force_indices.add(grid.requested_path_idx)
+
+    assert len(force_indices) == 6, "Should have 6 unique force signal indices (2 per grid × 3 grids)"

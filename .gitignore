@@ -11,3 +11,5 @@ env/
 venv/
 CLAUDE.md
 src/hdsemg_shared.egg-info/
+build/
+claude/
