@@ -7,6 +7,7 @@ import os, time, json, re, uuid, requests
 from .matlab_file_io import MatFileIO
 from .otb_plus_file_io import load_otb_file
 from .otb_4_file_io import load_otb4_file
+from .edf_file_io import load_edf_file
 
 # -----------------------------------------------------------------------------
 # Grid dataclass
@@ -80,6 +81,9 @@ class EMGFile:
         elif suffix == ".otb4":
             raw = load_otb4_file(filepath)
             file_type = "otb4"
+        elif suffix == ".edf":
+            raw = load_edf_file(filepath)
+            file_type = "edf"
         else:
             raise ValueError(f"Unsupported file type: {suffix!r}")
 
