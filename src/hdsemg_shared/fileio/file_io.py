@@ -324,6 +324,48 @@ class EMGFile:
                     return g
         return None
 
+    @classmethod
+    def supported_file_types(cls) -> list[tuple[str, str]]:
+        """
+        Returns file type filters for use in file picker dialogs (e.g. tkinter filedialog).
+
+        Each entry is a (description, pattern) tuple where the pattern is a
+        space-separated list of glob expressions. Pass the return value directly
+        to tkinter's ``filedialog.askopenfilename(filetypes=...)``.
+
+        Example::
+
+            from tkinter import filedialog
+            path = filedialog.askopenfilename(
+                filetypes=EMGFile.supported_file_types()
+            )
+
+        Returns
+        -------
+        list of (str, str)
+            Ordered list of (description, glob_pattern) tuples.
+        """
+        return [
+            ("EMG Files", "*.mat *.otb *.otb+ *.otb4 *.edf"),
+            ("MATLAB Files", "*.mat"),
+            ("OTB / OTB+ Files", "*.otb *.otb+"),
+            ("OTB4 Files", "*.otb4"),
+            ("EDF Files", "*.edf"),
+            ("All Files", "*.*"),
+        ]
+
+    @classmethod
+    def supported_extensions(cls) -> list[str]:
+        """
+        Returns the list of file extensions that ``EMGFile.load`` accepts.
+
+        Returns
+        -------
+        list of str
+            Lower-case extensions including the leading dot.
+        """
+        return [".mat", ".otb", ".otb+", ".otb4", ".edf"]
+
     def copy(self):
         """
         Returns a deep copy of the EMGFile instance.

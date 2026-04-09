@@ -13,3 +13,13 @@ CLAUDE.md
 src/hdsemg_shared.egg-info/
 build/
 claude/
+.DS_Store
+*.log
+*.bak
+*.tmp
+*.swp
+*.swo
+*.egg-info/
+dist/
+*.egg
+*.egg-info  
