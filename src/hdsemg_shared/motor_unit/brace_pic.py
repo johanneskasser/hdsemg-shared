@@ -706,7 +706,7 @@ def plot_brace(
     ci_shadow: str = "sd",
     ci_metric_label: bool = True,
     show_points: bool = True,
-    show_scale_bars: bool = True,
+    show_scale_bars: bool = False,
     scale_reference: float = 10.0,
     scale_discharge: float = 10.0,
     equal_scale: bool = True,
@@ -730,13 +730,12 @@ def plot_brace(
         interval when draw traces are available; if unavailable, it falls back to
         SD.
     show_scale_bars : bool
-        Add 10 %MVT and 10 pps scale bars by default.
+        Add reference and discharge-rate scale bars.
     scale_reference, scale_discharge : float
-        Scale-bar lengths.  With defaults and ``equal_scale=True``, the plot
-        matches the Fig. 1 panel-c convention that 10 %MVT and 10 pps occupy the
-        same display length.
+        Scale-bar lengths used only when ``show_scale_bars=True``.
     equal_scale : bool
-        Set ``ax.set_aspect(scale_reference / scale_discharge)``.
+        Set ``ax.set_aspect(scale_reference / scale_discharge)``.  Disabled by
+        default so matplotlib can fill the plot area with normal autoscaling.
     """
     import matplotlib.pyplot as plt
 
