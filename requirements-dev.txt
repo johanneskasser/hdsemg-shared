@@ -8,3 +8,4 @@ requests
 mkdocs
 mkdocs-material
 mkdocstrings[python-legacy]>=0.18
+ipywidgets

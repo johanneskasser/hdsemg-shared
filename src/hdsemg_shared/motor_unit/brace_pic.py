@@ -28,15 +28,19 @@ recruitment-brace-peak polyline.
 Optional uncertainty estimates
 ------------------------------
 ``compute_brace_pic(..., ci=95)`` adds intervals to the returned dataclass.  The
-default CI engine is an experimental posterior-predictive HDI:
+default CI engine is an experimental residual-bootstrap HDI:
 
-1. infer plausible discharge times from the smoothed pps trace;
-2. jitter those times using a discharge-time uncertainty model;
-3. recompute instantaneous discharge rate;
-4. refit the discharge-rate smoother via
-   ``hdsemg_shared.motor_unit.discharge_rate.smooth_discharge_rate_svr``;
-5. recompute the brace metrics for every draw;
-6. summarize the draw distribution using either HDI or ETI intervals.
+1. fit SVR to raw instantaneous-discharge-rate samples;
+2. resample centered regression residuals with replacement;
+3. rebuild a bootstrap discharge-rate trace on the same evaluation grid;
+4. recompute the brace metrics for every draw;
+5. summarize the draw distribution using either HDI or ETI intervals.
+
+For workflows that already have raw instantaneous-discharge-rate samples,
+``CIOptions(method="bootstrap_svr", bootstrap_rate_times=..., bootstrap_rate_values=...)``
+resamples residuals from the IDR-to-SVR fit.  This keeps the discharge times
+and evaluation grid fixed and estimates uncertainty around the deterministic
+SVR smoother.
 
 When uncertainty is requested, the scalar metric attributes returned on
 ``BracePICResult`` are the means of the successful uncertainty draws.  Without
@@ -81,7 +85,7 @@ import numpy as np
 MAX_BRACE_HEIGHT_NORM = 200.0
 
 # Minimum inferred or observed discharges required before spike-timing based
-# rate reconstruction is treated as meaningful for the CI/jitter path.
+# rate reconstruction is treated as meaningful for the CI path.
 DEFAULT_MIN_DISCHARGES = 10
 
 
@@ -159,10 +163,11 @@ class CIOptions:
     ----------
     level : float
         Interval mass in percent.  ``ci=95`` sets this to 95.
-    method : {"jitter_svr", "trace_noise", "sensitivity"}
-        ``"jitter_svr"`` is the recommended experimental default.  It infers
-        latent discharge times from the smoothed pps trace, jitters them, refits
-        SVR discharge-rate smoothing, and recomputes brace metrics.
+    method : {"bootstrap_svr", "trace_noise", "sensitivity"}
+        ``"bootstrap_svr"`` bootstraps residuals from the raw
+        instantaneous-discharge-rate to SVR fit, keeping spike times and the
+        evaluation grid fixed.  It requires ``bootstrap_rate_times`` and
+        ``bootstrap_rate_values``.
         ``"trace_noise"`` perturbs the smoothed trace directly and is faster but
         less physiologically motivated.
         ``"sensitivity"`` evaluates deterministic endpoint/smoothing choices and
@@ -179,20 +184,17 @@ class CIOptions:
         imports.  Process mode can help for very large draw counts.
     random_state : int, optional
         Seed for reproducible CI draws.
-    jitter_sd_s : float, optional
-        Absolute discharge-time jitter SD in seconds.  If omitted, SD is
-        ``jitter_fraction_isi / local_rate`` for each inferred spike.
-    jitter_fraction_isi : float
-        Relative jitter as a fraction of local ISI when ``jitter_sd_s`` is not
-        supplied.
-    min_isi_s : float
-        Lower bound for reconstructed ISIs after jittering.
     trace_noise_sd : float, optional
         Direct trace-noise SD for ``method="trace_noise"``.  If omitted, a
         robust second-difference estimate is used.
+    bootstrap_rate_times, bootstrap_rate_values : np.ndarray, optional
+        Raw instantaneous-discharge-rate support times and values used by
+        ``method="bootstrap_svr"``.  These are usually the ``rate_times`` and
+        ``rate`` returned by ``instantaneous_discharge_rate`` before the
+        deterministic SVR smoother is evaluated.
     svr_kwargs : dict
         Keyword arguments passed to ``smooth_discharge_rate_svr`` during
-        ``method="jitter_svr"``.
+        ``method="bootstrap_svr"``.
     recruitment_windows, peak_windows, brace_windows : tuple[int, ...]
         Deterministic averaging-window choices used by
         ``method="sensitivity"``.  Values are in samples on the analysed trace.
@@ -203,16 +205,15 @@ class CIOptions:
     """
 
     level: float = 95.0
-    method: CIMethod = "jitter_svr"
+    method: CIMethod = "bootstrap_svr"
     interval: IntervalKind = "hdi"
     n_draws: int = 500
     n_jobs: int = 1
     parallel_backend: str = "thread"
     random_state: Optional[int] = None
-    jitter_sd_s: Optional[float] = None
-    jitter_fraction_isi: float = 0.10
-    min_isi_s: float = 0.020
     trace_noise_sd: Optional[float] = None
+    bootstrap_rate_times: Optional[np.ndarray] = None
+    bootstrap_rate_values: Optional[np.ndarray] = None
     min_discharges: int = DEFAULT_MIN_DISCHARGES
     svr_kwargs: Dict[str, Any] = field(default_factory=lambda: {
         "C": 10.0,
@@ -508,6 +509,7 @@ def compute_brace_pic(
             result,
             full_reference=np.asarray(reference, dtype=np.float64),
             full_discharge=np.asarray(discharge_rate, dtype=np.float64),
+            full_time=np.asarray(time, dtype=float) if time is not None else None,
             fsamp=fsamp,
             opts=opts,
             core_kwargs={
@@ -1036,6 +1038,7 @@ def _compute_ci(
     *,
     full_reference: np.ndarray,
     full_discharge: np.ndarray,
+    full_time: Optional[np.ndarray],
     fsamp: Optional[float],
     opts: CIOptions,
     core_kwargs: Mapping[str, Any],
@@ -1045,11 +1048,20 @@ def _compute_ci(
         raise ValueError("CI level must be in (0, 100).")
     if opts.interval not in {"hdi", "eti"}:
         raise ValueError("ci interval must be 'hdi' or 'eti'.")
-    if opts.method not in {"jitter_svr", "trace_noise", "sensitivity"}:
-        raise ValueError("ci method must be 'jitter_svr', 'trace_noise', or 'sensitivity'.")
+    if opts.method not in {"bootstrap_svr", "trace_noise", "sensitivity"}:
+        raise ValueError("ci method must be 'bootstrap_svr', 'trace_noise', or 'sensitivity'.")
 
     if opts.method == "sensitivity":
         draw_records, trace_draws = _sensitivity_draws(result, full_reference, full_discharge, fsamp, opts, core_kwargs)
+    elif opts.method == "bootstrap_svr":
+        draw_records, trace_draws = _bootstrap_svr_draws(
+            result,
+            full_reference,
+            full_time,
+            fsamp,
+            opts,
+            core_kwargs,
+        )
     else:
         n = int(opts.n_draws)
         if n <= 0:
@@ -1139,9 +1151,7 @@ def _ci_draw_worker(args: Tuple[Any, ...]) -> Tuple[Optional[Dict[str, float]], 
     time_arr = _time_for_ci(time, ref.size, fsamp)
 
     try:
-        if method == "jitter_svr":
-            draw_y = _jitter_svr_trace(ref, dr, time_arr, fsamp, opts, rng)
-        elif method == "trace_noise":
+        if method == "trace_noise":
             sd = opts.trace_noise_sd if opts.trace_noise_sd is not None else _robust_trace_noise_sd(dr)
             draw_y = dr + rng.normal(0.0, sd, size=dr.size)
         else:
@@ -1162,31 +1172,105 @@ def _ci_draw_worker(args: Tuple[Any, ...]) -> Tuple[Optional[Dict[str, float]], 
         return None, None
 
 
-def _jitter_svr_trace(
-    ref: np.ndarray,
-    dr: np.ndarray,
-    time_arr: np.ndarray,
+def _bootstrap_svr_draws(
+    result: BracePICResult,
+    full_reference: np.ndarray,
+    full_time: Optional[np.ndarray],
     fsamp: Optional[float],
     opts: CIOptions,
-    rng: np.random.Generator,
-) -> np.ndarray:
-    from .discharge_rate import instantaneous_discharge_rate, smooth_discharge_rate_svr
+    core_kwargs: Mapping[str, Any],
+) -> Tuple[List[Dict[str, float]], List[np.ndarray]]:
+    from .discharge_rate import smooth_discharge_rate_svr
 
-    spike_times = _infer_spike_times_from_smoothed_rate(time_arr, dr)
-    if spike_times.size < opts.min_discharges:
-        raise ValueError("Too few inferred spikes for jitter-SVR CI.")
+    if opts.bootstrap_rate_times is None or opts.bootstrap_rate_values is None:
+        raise ValueError("bootstrap_svr requires CIOptions.bootstrap_rate_times and bootstrap_rate_values.")
 
-    local_rate = np.interp(spike_times, time_arr, np.maximum(dr, 1e-6))
-    if opts.jitter_sd_s is None:
-        jitter_sd = opts.jitter_fraction_isi / np.maximum(local_rate, 1e-6)
-    else:
-        jitter_sd = np.full_like(spike_times, float(opts.jitter_sd_s))
+    rate_times = np.asarray(opts.bootstrap_rate_times, dtype=float).reshape(-1)
+    rate_values = np.asarray(opts.bootstrap_rate_values, dtype=float).reshape(-1)
+    finite = np.isfinite(rate_times) & np.isfinite(rate_values)
+    rate_times = rate_times[finite]
+    rate_values = rate_values[finite]
 
-    jittered = spike_times + rng.normal(0.0, jitter_sd)
-    jittered = _regularize_spike_times(jittered, time_arr[0], time_arr[-1], opts.min_isi_s)
-    rate_times, rate = instantaneous_discharge_rate(jittered, min_discharges=opts.min_discharges)
-    _, smooth = smooth_discharge_rate_svr(rate_times, rate, time_arr, **opts.svr_kwargs)
-    return np.asarray(smooth, dtype=float)
+    if rate_times.size < opts.min_discharges or rate_values.size < opts.min_discharges:
+        raise ValueError("bootstrap_svr requires CIOptions.bootstrap_rate_times and bootstrap_rate_values.")
+    if rate_times.shape != rate_values.shape:
+        raise ValueError("bootstrap_svr requires CIOptions.bootstrap_rate_times and bootstrap_rate_values.")
+
+    order = np.argsort(rate_times)
+    rate_times = rate_times[order]
+    rate_values = rate_values[order]
+
+    _, fitted = smooth_discharge_rate_svr(rate_times, rate_values, rate_times, **opts.svr_kwargs)
+    fitted = np.asarray(fitted, dtype=float)
+    residuals = rate_values - fitted
+    residual_finite = np.isfinite(fitted) & np.isfinite(residuals)
+    rate_times = rate_times[residual_finite]
+    fitted = fitted[residual_finite]
+    residuals = residuals[residual_finite]
+    if residuals.size < opts.min_discharges:
+        raise ValueError("bootstrap_svr requires CIOptions.bootstrap_rate_times and bootstrap_rate_values.")
+    residuals = residuals - float(np.mean(residuals))
+
+    full_t = _time_for_ci(full_time, full_reference.size, fsamp)
+    n = int(opts.n_draws)
+    if n <= 0:
+        raise ValueError("n_draws must be positive.")
+
+    rng = np.random.default_rng(opts.random_state)
+    seeds = rng.integers(0, np.iinfo(np.uint32).max, size=n, dtype=np.uint32)
+    worker_args = [
+        (
+            int(seed),
+            rate_times,
+            fitted,
+            residuals,
+            full_t,
+            np.asarray(full_reference, dtype=float),
+            result.peak_reference_idx,
+            fsamp,
+            dict(opts.svr_kwargs),
+            dict(core_kwargs),
+        )
+        for seed in seeds
+    ]
+    outputs = _parallel_map(_bootstrap_svr_draw_worker, worker_args, opts.n_jobs, opts.parallel_backend)
+    records = [out[0] for out in outputs if out is not None and out[0] is not None]
+    traces = [out[1] for out in outputs if out is not None and out[1] is not None]
+    return records, traces
+
+
+def _bootstrap_svr_draw_worker(args: Tuple[Any, ...]) -> Tuple[Optional[Dict[str, float]], Optional[np.ndarray]]:
+    (
+        seed,
+        rate_times,
+        fitted,
+        residuals,
+        full_t,
+        full_reference,
+        peak_reference_idx,
+        fsamp,
+        svr_kwargs,
+        core_kwargs,
+    ) = args
+    from .discharge_rate import smooth_discharge_rate_svr
+
+    rng = np.random.default_rng(seed)
+    try:
+        idr_b = fitted + rng.choice(residuals, size=residuals.size, replace=True)
+        _, smooth_b = smooth_discharge_rate_svr(rate_times, idr_b, full_t, **svr_kwargs)
+        draw_result = _compute_brace_pic_core(
+            discharge_rate=np.asarray(smooth_b, dtype=float),
+            reference=full_reference,
+            recruitment_idx=None,
+            peak_idx=None,
+            peak_reference_idx=peak_reference_idx,
+            fsamp=fsamp,
+            time=full_t,
+            **core_kwargs,
+        )
+        return _result_metric_record(draw_result), draw_result.y
+    except Exception:
+        return None, None
 
 
 def _sensitivity_draws(
@@ -1272,8 +1356,6 @@ def _coerce_ci_options_mapping(ci_options: Mapping[str, Any]) -> Dict[str, Any]:
     option_key_map = {
         "ci_interval_method": "interval",
         "interval_kind": "interval",
-        "jitter_cv": "jitter_fraction_isi",
-        "refractory_s": "min_isi_s",
         "start_avg_samples": "recruitment_windows",
         "peak_avg_samples": "peak_windows",
         "brace_avg_samples": "brace_windows",
@@ -1315,10 +1397,7 @@ def _first_option(value: Any) -> Any:
 
 
 def _normalize_ci_method(method: str) -> str:
-    method = str(method)
-    if method == "bayesian_jitter_svr":
-        return "jitter_svr"
-    return method
+    return str(method)
 
 
 def _normalize_ci_interval(interval: str) -> str:
@@ -1487,33 +1566,6 @@ def _time_for_ci(time: Optional[np.ndarray], n: int, fsamp: Optional[float]) -> 
     return np.arange(n, dtype=float) / float(fsamp)
 
 
-def _infer_spike_times_from_smoothed_rate(time_arr: np.ndarray, rate: np.ndarray) -> np.ndarray:
-    time_arr = np.asarray(time_arr, dtype=float)
-    rate = np.maximum(np.asarray(rate, dtype=float), 1e-6)
-    if time_arr.size != rate.size or time_arr.size < 2:
-        return np.asarray([], dtype=float)
-    dt = np.diff(time_arr)
-    # Trapezoidal integral of pps gives expected spike count.
-    increments = 0.5 * (rate[:-1] + rate[1:]) * dt
-    cumulative = np.concatenate([[0.0], np.cumsum(increments)])
-    n_events = int(np.floor(cumulative[-1]))
-    if n_events < 1:
-        return np.asarray([], dtype=float)
-    levels = np.arange(1, n_events + 1, dtype=float)
-    return np.interp(levels, cumulative, time_arr)
-
-
-def _regularize_spike_times(times: np.ndarray, t_min: float, t_max: float, min_isi_s: float) -> np.ndarray:
-    times = np.sort(np.clip(np.asarray(times, dtype=float), t_min, t_max))
-    if times.size == 0:
-        return times
-    kept = [float(times[0])]
-    for t in times[1:]:
-        if t - kept[-1] >= min_isi_s:
-            kept.append(float(t))
-    return np.asarray(kept, dtype=float)
-
-
 def _robust_trace_noise_sd(y: np.ndarray) -> float:
     y = np.asarray(y, dtype=float)
     if y.size < 5:
@@ -1541,6 +1593,9 @@ def _result_metric_record(res: BracePICResult) -> Dict[str, float]:
 def _ci_options_as_dict(opts: CIOptions) -> Dict[str, Any]:
     out = dict(opts.__dict__)
     out["svr_kwargs"] = dict(opts.svr_kwargs)
+    for key in ("bootstrap_rate_times", "bootstrap_rate_values"):
+        value = out.get(key)
+        out[key] = None if value is None else {"n": int(np.asarray(value).size)}
     return out
 
 
