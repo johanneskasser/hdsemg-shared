@@ -26,7 +26,6 @@ from .brace_height import (
     compute_brace_height,
 )
 from .brace_pic import (
-    MAX_BRACE_HEIGHT_NORM,
     MetricInterval,
     BracePICCI,
     CIOptions,
@@ -48,7 +47,6 @@ __all__ = [
     "BraceHeightResult",
     "brace_height_from_spike_train",
     "compute_brace_height",
-    "MAX_BRACE_HEIGHT_NORM",
     "MetricInterval",
     "BracePICCI",
     "CIOptions",

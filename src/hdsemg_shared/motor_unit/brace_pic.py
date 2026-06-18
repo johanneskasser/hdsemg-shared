@@ -1,11 +1,8 @@
+"""Brace-method PIC quantification for motor-unit discharge profiles.
 
-"""
-PIC brace-method quantification for motor-unit discharge profiles.
-
-This module supersedes ``brace_height.py`` while preserving its main public
-entry points.  It implements the pseudo-geometric brace method of Beauchamp et
-al. (2023) for estimating persistent inward-current (PIC) amplification in
-individual motor units (MUs).
+This module implements an explicit PIC-oriented API around the pseudo-geometric
+brace method of Beauchamp et al. (2023).  It owns the PIC result dataclasses, CI
+machinery, plotting helpers, and ``compute_brace_pic`` entry point.
 
 Method summary
 --------------
@@ -30,9 +27,8 @@ recruitment-brace-peak polyline.
 
 Optional uncertainty estimates
 ------------------------------
-``compute_brace_height(..., ci=95)`` or ``pics_brace(..., ci=95)`` adds
-intervals to the returned dataclass.  The default CI engine is an experimental
-posterior-predictive HDI:
+``compute_brace_pic(..., ci=95)`` adds intervals to the returned dataclass.  The
+default CI engine is an experimental posterior-predictive HDI:
 
 1. infer plausible discharge times from the smoothed pps trace;
 2. jitter those times using a discharge-time uncertainty model;
@@ -42,8 +38,13 @@ posterior-predictive HDI:
 5. recompute the brace metrics for every draw;
 6. summarize the draw distribution using either HDI or ETI intervals.
 
-This interval is a model-based sensitivity/credible interval, not an
-author-validated clinical confidence interval.  It is intended to expose how
+When uncertainty is requested, the scalar metric attributes returned on
+``BracePICResult`` are the means of the successful uncertainty draws.  Without
+uncertainty, those same attributes are the deterministic estimates from the
+input trace.  The interval summaries also report the draw mean and SD.
+
+These intervals are model-based sensitivity/credible intervals, not
+author-validated clinical confidence intervals.  They are intended to expose how
 brace metrics respond to spike timing, smoothing, and endpoint choices.
 
 References
@@ -58,14 +59,10 @@ References
 
 Example
 -------
->>> result = compute_brace_height(smooth_rate_pps, torque_percent_mvt, fsamp=2048)
+>>> result = compute_brace_pic(smooth_rate_pps, torque_percent_mvt, fsamp=2048)
 >>> result.brace_height_norm
 >>> result.acceleration_slope, result.attenuation_slope, result.angle
 >>> ax = plot_brace(result)
-
-Backward-compatible aliases:
-``pics_brace`` and ``compute_pic_brace`` call ``compute_brace_height``;
-``BraceHeightResult`` aliases ``BracePICResult``.
 """
 
 from __future__ import annotations
@@ -95,7 +92,9 @@ class MetricInterval:
     Attributes
     ----------
     point : float
-        Deterministic estimate from the input trace.
+        Returned point estimate for this metric.  With uncertainty enabled this
+        is the mean of finite successful draws; if no finite draws are
+        available it falls back to the deterministic input-trace estimate.
     mean, sd : float
         Mean and sample standard deviation across CI draws.
     lower, upper : float
@@ -231,10 +230,13 @@ class BracePICResult:
     ----------
     brace_height_norm : float
         Normalized brace height, in percent right-triangle height (% rTri).
+        If uncertainty estimation is enabled and produces finite draws, this is
+        the draw mean; otherwise it is the deterministic input-trace estimate.
     brace_height : float
         Equivalent vertical discharge-rate deviation, in pps.  The normalized
         value is the primary paper-style metric; this pps value is retained for
-        interpretability and backward compatibility.
+        interpretability.  It follows the same point-estimate rule as
+        ``brace_height_norm``.
     brace_distance : float
         Orthogonal distance from brace point to hypotenuse in raw plotting units
         (where x is reference and y is pps).  Use cautiously because the axes
@@ -244,9 +246,11 @@ class BracePICResult:
         ``100 * brace_distance / right_triangle_height == brace_height_norm``.
     acceleration_slope, attenuation_slope : float
         Phase slopes in pps per reference unit, e.g. pps/%MVT.
+        With uncertainty enabled, these are draw means.
     angle : float
         Reflex angle at the brace point in degrees.  A linear trace is 180 deg;
-        larger values indicate stronger bowing.
+        larger values indicate stronger bowing.  With uncertainty enabled, this
+        is the draw mean.
     recruitment_idx, brace_idx, peak_idx : int
         Indices into the original input arrays.
     peak_reference_idx : int
@@ -363,12 +367,7 @@ class BracePICResult:
             out["ci_n_failed"] = self.ci.n_failed
         return out
 
-
-# Backward-compatible class name.
-BraceHeightResult = BracePICResult
-
-
-def compute_brace_height(
+def compute_brace_pic(
     discharge_rate: np.ndarray,
     reference: np.ndarray,
     *,
@@ -431,6 +430,9 @@ def compute_brace_height(
     ci : bool or float
         ``False`` disables uncertainty estimation.  ``True`` requests the
         default 95% HDI.  A number, e.g. ``95``, requests that interval level.
+        When CI is enabled, the scalar metric attributes on the returned
+        result are the means of the successful uncertainty draws.  When CI is
+        disabled, they are the deterministic estimates from the input trace.
     ci_options : CIOptions or dict, optional
         Detailed uncertainty options.
     ci_method, ci_interval, ci_interval_method, ci_n_draws, ci_n_jobs,
@@ -443,7 +445,7 @@ def compute_brace_height(
         Structured result with scalar metrics, geometry points, checks, and
         optional uncertainty intervals.
     """
-    result = _compute_brace_height_core(
+    result = _compute_brace_pic_core(
         discharge_rate=discharge_rate,
         reference=reference,
         recruitment_idx=recruitment_idx,
@@ -488,26 +490,22 @@ def compute_brace_height(
                 "peak_torque_tolerance_s": peak_torque_tolerance_s,
             },
         )
+        _apply_ci_point_estimates(result)
 
     return result
 
 
 def pics_brace(*args: Any, **kwargs: Any) -> BracePICResult:
-    """Alias for :func:`compute_brace_height`."""
-    return compute_brace_height(*args, **kwargs)
-
-
-def compute_brace_pic(*args: Any, **kwargs: Any) -> BracePICResult:
-    """Alias for :func:`compute_brace_height`."""
-    return compute_brace_height(*args, **kwargs)
+    """Alias for :func:`compute_brace_pic`."""
+    return compute_brace_pic(*args, **kwargs)
 
 
 def compute_pic_brace(*args: Any, **kwargs: Any) -> BracePICResult:
-    """Alias for :func:`compute_brace_height`."""
-    return compute_brace_height(*args, **kwargs)
+    """Alias for :func:`compute_brace_pic`."""
+    return compute_brace_pic(*args, **kwargs)
 
 
-def brace_height_from_spike_train(
+def brace_pic_from_spike_train(
     spikes: np.ndarray,
     reference: np.ndarray,
     fsamp: float,
@@ -545,9 +543,9 @@ def brace_height_from_spike_train(
     t_eval : np.ndarray, optional
         Explicit evaluation times.
     ci, ci_options
-        Forwarded to :func:`compute_brace_height`.
+        Forwarded to :func:`compute_brace_pic`.
     **brace_kwargs
-        Additional arguments forwarded to :func:`compute_brace_height`.
+        Additional arguments forwarded to :func:`compute_brace_pic`.
     """
     from .discharge_rate import (
         firing_times_from_binary,
@@ -591,7 +589,7 @@ def brace_height_from_spike_train(
     ref_time = np.arange(reference.size, dtype=np.float64) / float(fsamp)
     ref_on_rate = np.interp(t_eval, ref_time, reference)
 
-    return compute_brace_height(
+    return compute_brace_pic(
         smooth_rate,
         ref_on_rate,
         fsamp=fsamp,
@@ -600,11 +598,6 @@ def brace_height_from_spike_train(
         ci_options=ci_options,
         **brace_kwargs,
     )
-
-
-def brace_pic_from_spike_train(*args: Any, **kwargs: Any) -> BracePICResult:
-    """Alias for :func:`brace_height_from_spike_train`."""
-    return brace_height_from_spike_train(*args, **kwargs)
 
 
 def pics_brace_openhdemg_all(
@@ -631,7 +624,7 @@ def pics_brace_openhdemg_all(
         activity are allowed.  If omitted, ``openhdemg.library.compute_svr`` is
         called.
     ci, ci_options, **brace_kwargs
-        Forwarded to :func:`compute_brace_height`.
+        Forwarded to :func:`compute_brace_pic`.
 
     Returns
     -------
@@ -665,7 +658,7 @@ def pics_brace_openhdemg_all(
     rows: List[Dict[str, Any]] = []
     for mu in range(smooth_arr.shape[1]):
         try:
-            res = compute_brace_height(
+            res = compute_brace_pic(
                 smooth_arr[:, mu],
                 ref,
                 fsamp=fsamp,
@@ -705,7 +698,7 @@ def plot_brace(
     Parameters
     ----------
     result : BracePICResult
-        Output from :func:`compute_brace_height`.
+        Output from :func:`compute_brace_pic`.
     ax : matplotlib Axes, optional
         Existing axes.  If omitted, a new figure and axes are created.
     show_ci : bool
@@ -807,7 +800,7 @@ def plot_brace(
 # ---------------------------------------------------------------------------
 
 
-def _compute_brace_height_core(
+def _compute_brace_pic_core(
     *,
     discharge_rate: np.ndarray,
     reference: np.ndarray,
@@ -1102,6 +1095,22 @@ def _compute_ci(
     )
 
 
+def _apply_ci_point_estimates(result: BracePICResult) -> None:
+    if result.ci is None:
+        return
+    metric_to_attr = {
+        "brace_height_norm": "brace_height_norm",
+        "brace_height": "brace_height",
+        "acceleration_slope": "acceleration_slope",
+        "attenuation_slope": "attenuation_slope",
+        "angle": "angle",
+    }
+    for metric, attr in metric_to_attr.items():
+        interval = result.ci.intervals.get(metric)
+        if interval is not None and np.isfinite(interval.point):
+            setattr(result, attr, float(interval.point))
+
+
 def _ci_draw_worker(args: Tuple[Any, ...]) -> Tuple[Optional[Dict[str, float]], Optional[np.ndarray]]:
     seed, method, ref, dr, time, fsamp, opts, core_kwargs = args
     rng = np.random.default_rng(seed)
@@ -1118,7 +1127,7 @@ def _ci_draw_worker(args: Tuple[Any, ...]) -> Tuple[Optional[Dict[str, float]], 
         else:
             return None, None
 
-        draw_result = _compute_brace_height_core(
+        draw_result = _compute_brace_pic_core(
             discharge_rate=draw_y,
             reference=ref,
             recruitment_idx=0,
@@ -1178,7 +1187,7 @@ def _sensitivity_draws(
                 kwargs["peak_window"] = int(pw)
                 kwargs["brace_window"] = int(bw)
                 try:
-                    res = _compute_brace_height_core(
+                    res = _compute_brace_pic_core(
                         discharge_rate=result.y,
                         reference=result.x,
                         recruitment_idx=0,
@@ -1304,6 +1313,7 @@ def _metric_interval(values: np.ndarray, point: float, level: float, interval: s
 
     mean = float(np.mean(values))
     sd = float(np.std(values, ddof=1)) if values.size > 1 else 0.0
+    point_estimate = mean
 
     if values.size == 1:
         lower = upper = float(values[0])
@@ -1314,7 +1324,7 @@ def _metric_interval(values: np.ndarray, point: float, level: float, interval: s
         lower, upper = _hdi(values, level / 100.0)
 
     return MetricInterval(
-        point=float(point),
+        point=float(point_estimate),
         mean=mean,
         sd=sd,
         lower=float(lower),
@@ -1562,12 +1572,9 @@ __all__ = [
     "BracePICCI",
     "CIOptions",
     "BracePICResult",
-    "BraceHeightResult",
-    "compute_brace_height",
     "compute_brace_pic",
     "pics_brace",
     "compute_pic_brace",
-    "brace_height_from_spike_train",
     "brace_pic_from_spike_train",
     "pics_brace_openhdemg_all",
     "plot_brace",
