@@ -2,11 +2,15 @@
 Motor-unit discharge analysis for HD-sEMG.
 
 This subpackage provides utilities for converting decomposed motor-unit (MU)
-spike trains into instantaneous and smoothed discharge-rate traces, together
-with a brace-method implementation for estimating PIC-related discharge
-nonlinearity from a single MU.
+spike trains into instantaneous and smoothed discharge-rate traces.
 
-The preferred brace-method API is the module namespace:
+Two brace-method APIs currently coexist:
+
+* ``brace_height`` contains the original minimal brace-height implementation.
+* ``brace_pic`` contains the PIC-oriented implementation with geometry details
+  and optional uncertainty estimates.
+
+Use the explicit module namespace when possible:
 
 >>> from hdsemg_shared.motor_unit import brace_pic
 >>> result = brace_pic.compute_brace_pic(smooth_rate_pps, reference_percent_mvt)
@@ -31,10 +35,8 @@ from .brace_pic import (
     CIOptions,
     BracePICResult,
     compute_brace_pic,
-    pics_brace,
-    compute_pic_brace,
     brace_pic_from_spike_train,
-    pics_brace_openhdemg_all,
+    compute_brace_pic_openhdemg_all,
     plot_brace,
 )
 __all__ = [
@@ -52,9 +54,7 @@ __all__ = [
     "CIOptions",
     "BracePICResult",
     "compute_brace_pic",
-    "pics_brace",
-    "compute_pic_brace",
     "brace_pic_from_spike_train",
-    "pics_brace_openhdemg_all",
+    "compute_brace_pic_openhdemg_all",
     "plot_brace",
 ]

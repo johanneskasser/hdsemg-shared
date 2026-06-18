@@ -76,7 +76,12 @@ import os
 import numpy as np
 
 
+# Paper inspection criterion: brace heights above 200 % of the right-triangle
+# height are considered physiologically implausible/irregular and are flagged.
 MAX_BRACE_HEIGHT_NORM = 200.0
+
+# Minimum inferred or observed discharges required before spike-timing based
+# rate reconstruction is treated as meaningful for the CI/jitter path.
 DEFAULT_MIN_DISCHARGES = 10
 
 
@@ -306,22 +311,22 @@ class BracePICResult:
 
     @property
     def brace_height_percent_rtri(self) -> float:
-        """Alias for ``brace_height_norm``."""
+        """Normalized brace height in percent right-triangle height."""
         return self.brace_height_norm
 
     @property
     def acceleration_slope_pps_per_percent_mvt(self) -> float:
-        """Alias used by earlier prototypes."""
+        """Acceleration slope expressed in pps per %MVT."""
         return self.acceleration_slope
 
     @property
     def attenuation_slope_pps_per_percent_mvt(self) -> float:
-        """Alias used by earlier prototypes."""
+        """Attenuation slope expressed in pps per %MVT."""
         return self.attenuation_slope
 
     @property
     def angle_deg(self) -> float:
-        """Alias for ``angle``."""
+        """Brace angle in degrees."""
         return self.angle
 
     def as_dict(self, *, include_ci: bool = True) -> Dict[str, Any]:
@@ -442,8 +447,34 @@ def compute_brace_pic(
     Returns
     -------
     BracePICResult
-        Structured result with scalar metrics, geometry points, checks, and
-        optional uncertainty intervals.
+        A structured result for one MU.  The main scalar fields are:
+
+        ``brace_height_norm``
+            The primary PIC brace metric, reported as percent right-triangle
+            height (% rTri).  Larger positive values mean the discharge-rate
+            trace bows farther above the recruitment-to-peak linear reference.
+        ``brace_height``
+            The same deviation expressed as an equivalent vertical
+            discharge-rate difference in pps.
+        ``acceleration_slope`` and ``attenuation_slope``
+            Raw-unit slopes for the recruitment-to-brace and brace-to-peak
+            phases, respectively, typically in pps/%MVT.
+        ``angle``
+            Reflex angle at the brace point in degrees.  A linear trace is
+            180 degrees; stronger bowing increases the angle.
+        ``recruitment_idx``, ``brace_idx``, ``peak_idx``
+            Indices into the original input arrays identifying the analysed
+            geometry points.
+        ``valid`` and ``exclusion_reasons``
+            Paper-style inspection flags.  Invalid results are returned rather
+            than dropped, so callers can decide whether to filter them.
+        ``x``, ``y``, and ``time``
+            The finite recruitment-to-peak segment used for the calculation.
+        ``ci``
+            Optional uncertainty summary.  When CI is requested and finite
+            draws are available, the scalar metric fields above are draw means;
+            the deterministic geometry points and indices still describe the
+            original input trace used to generate the draw set.
     """
     result = _compute_brace_pic_core(
         discharge_rate=discharge_rate,
@@ -493,16 +524,6 @@ def compute_brace_pic(
         _apply_ci_point_estimates(result)
 
     return result
-
-
-def pics_brace(*args: Any, **kwargs: Any) -> BracePICResult:
-    """Alias for :func:`compute_brace_pic`."""
-    return compute_brace_pic(*args, **kwargs)
-
-
-def compute_pic_brace(*args: Any, **kwargs: Any) -> BracePICResult:
-    """Alias for :func:`compute_brace_pic`."""
-    return compute_brace_pic(*args, **kwargs)
 
 
 def brace_pic_from_spike_train(
@@ -600,7 +621,7 @@ def brace_pic_from_spike_train(
     )
 
 
-def pics_brace_openhdemg_all(
+def compute_brace_pic_openhdemg_all(
     emgfile: Mapping[str, Any],
     *,
     smoothfits: Optional[Any] = None,
@@ -608,7 +629,7 @@ def pics_brace_openhdemg_all(
     ci_options: Optional[Union[CIOptions, Mapping[str, Any]]] = None,
     **brace_kwargs: Any,
 ) -> Tuple[Any, List[BracePICResult]]:
-    """Run brace metrics for all MUs in an ``openhdemg`` file-like object.
+    """Compute brace-method PIC metrics for all MUs in an ``openhdemg`` object.
 
     If ``smoothfits`` is supplied, it is used directly and no SVR smoothing is
     performed.  This supports validation against externally smoothed traces such
@@ -1249,7 +1270,7 @@ def _make_ci_options(
 
 def _coerce_ci_options_mapping(ci_options: Mapping[str, Any]) -> Dict[str, Any]:
     data = dict(ci_options)
-    aliases = {
+    option_key_map = {
         "ci_interval_method": "interval",
         "interval_kind": "interval",
         "jitter_cv": "jitter_fraction_isi",
@@ -1258,7 +1279,7 @@ def _coerce_ci_options_mapping(ci_options: Mapping[str, Any]) -> Dict[str, Any]:
         "peak_avg_samples": "peak_windows",
         "brace_avg_samples": "brace_windows",
     }
-    for old, new in aliases.items():
+    for old, new in option_key_map.items():
         if old in data and new not in data:
             data[new] = data[old]
 
@@ -1573,9 +1594,7 @@ __all__ = [
     "CIOptions",
     "BracePICResult",
     "compute_brace_pic",
-    "pics_brace",
-    "compute_pic_brace",
     "brace_pic_from_spike_train",
-    "pics_brace_openhdemg_all",
+    "compute_brace_pic_openhdemg_all",
     "plot_brace",
 ]
