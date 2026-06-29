@@ -173,13 +173,15 @@ Key `CIOptions` parameters:
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `method` | `"jitter_svr"` | Draw generation strategy (`"jitter_svr"`, `"trace_noise"`, `"sensitivity"`) |
+| `method` | `"jitter_svr"` | Draw generation strategy (`"jitter_svr"`, `"bootstrap_svr"`, `"trace_noise"`, `"sensitivity"`) |
 | `interval` | `"hdi"` | `"hdi"` (shortest) or `"eti"` (equal-tailed) |
 | `n_draws` | `500` | Number of draws |
 | `n_jobs` | `1` | Parallel workers (`-1` = all CPUs) |
 | `random_state` | `None` | Seed for reproducibility |
 | `jitter_fraction_isi` | `0.10` | Jitter SD as fraction of local ISI |
-| `svr_kwargs` | `{"C": 10, ...}` | SVR settings used for jitter-SVR draws |
+| `svr_kwargs` | `{"C": 10, ...}` | SVR settings used for jitter-SVR and bootstrap-SVR draws |
+| `bootstrap_rate_times` | `None` | Raw IDR times (s); required for `"bootstrap_svr"` |
+| `bootstrap_rate_values` | `None` | Raw IDR values (pps); required for `"bootstrap_svr"` |
 | `store_draws` | `True` | Keep per-draw scalar arrays in `result.ci.draws` |
 | `store_trace_summary` | `True` | Keep mean/SD of smoothed-rate draws for plotting |
 
@@ -187,6 +189,36 @@ Key `CIOptions` parameters:
 from hdsemg_shared.motor_unit import CIOptions, compute_brace_pic
 
 opts = CIOptions(n_draws=200, n_jobs=-1, random_state=42)
+result = compute_brace_pic(smooth_rate, torque, ci=95, ci_options=opts)
+```
+
+### Bootstrap-SVR method
+
+The `"jitter_svr"` method can systematically underestimate brace height
+because jittering spike times causes the SVR to over-smooth, flattening the
+curve. The `"bootstrap_svr"` method avoids this by resampling the residuals
+of the original IDR→SVR fit instead:
+
+1. Fit SVR to the raw IDR at the original spike times.
+2. Compute and mean-center the residuals.
+3. Per draw: resample residuals with replacement, add to the fitted values,
+   refit SVR with the same hyperparameters, recompute brace metrics.
+
+The draw mean is approximately unbiased w.r.t. the deterministic estimate.
+This method requires the raw instantaneous discharge rate (times and values)
+to be passed via `CIOptions`:
+
+```python
+from hdsemg_shared.motor_unit import CIOptions, compute_brace_pic
+
+opts = CIOptions(
+    method="bootstrap_svr",
+    n_draws=500,
+    n_jobs=-1,
+    random_state=42,
+    bootstrap_rate_times=rate_times,   # from instantaneous_discharge_rate()
+    bootstrap_rate_values=idr,         # from instantaneous_discharge_rate()
+)
 result = compute_brace_pic(smooth_rate, torque, ci=95, ci_options=opts)
 ```
 
