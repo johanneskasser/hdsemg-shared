@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import shutil
 import tarfile
 import tempfile
@@ -138,6 +139,39 @@ def load_otb4_file(file_path):
         raise ValueError(f"Could not align data ({data.shape}) with time ({time.shape})")
 
     return data, time, description_array, sampling_frequency, file_name, file_size
+
+
+MODEL_CODE_RE = re.compile(r"^(HD|GR)\d{2}MM\d{4}$")
+
+
+def grid_pattern_from_info(grid_info):
+    """
+    Build the electrode model code for a track's GridInfo.
+
+    The <Description><Name> field carries the real OTB product code
+    (e.g. "HD08MM1305"). Prefer it: <NRow>/<NColumn> use the opposite
+    orientation to the digits in the product code (NRow=5, NColumn=13 for
+    HD08MM1305), so synthesizing the code from them yields a product that does
+    not exist ("HD08MM0513") and silently transposes the grid downstream.
+
+    Falls back to the synthesized code only when <Name> is not a model code
+    (custom/renamed grids).
+    """
+    name = str(grid_info.get("Name", "")).strip().upper()
+    if MODEL_CODE_RE.match(name):
+        return name
+
+    ied = grid_info.get("IED", 1)
+    rows = grid_info.get("NRow", 1)
+    cols = grid_info.get("NColumn", 1)
+    fallback = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+    # Non-grid tracks (Quaternion, Control Signal, Force, ...) land here routinely,
+    # so this is debug rather than a warning.
+    logger.debug(
+        "GridInfo Name %r is not a product code; falling back to %s synthesized "
+        "from NRow/NColumn, which may be transposed.", grid_info.get("Name"), fallback
+    )
+    return fallback
 
 
 def parse_otb4_tracks_xml(xml_file):
@@ -382,7 +416,7 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
 
             # Only use grids with IED > 1 or many electrodes (real EMG grids)
             if ied > 1 or electrodes > 4:
-                last_valid_grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                last_valid_grid_pattern = grid_pattern_from_info(grid_info)
                 logger.debug(f"Found valid EMG grid pattern: {last_valid_grid_pattern}")
 
     # We'll create a big list of channel blocks
@@ -568,10 +602,7 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
 
                 if grid_info:
                     # Valid EMG grid: use its own pattern (no REF marker)
-                    ied = grid_info["IED"]
-                    rows = grid_info["NRow"]
-                    cols = grid_info["NColumn"]
-                    grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                    grid_pattern = grid_pattern_from_info(grid_info)
                     desc = f"{grid_id} {grid_pattern} ch{c+1}"
                     # Add muscle information if available
                     if muscle:
@@ -701,7 +732,7 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
     # IMPORTANT: We need to detect grid boundaries from the track structure, not just pattern changes
     # Multiple grids can have the same pattern (e.g., 2x HD10MM0804 on different muscles)
     import re
-    grid_pattern_regex = re.compile(r'HD\d{2}MM\d{4}')
+    grid_pattern_regex = re.compile(r'(?:HD|GR)\d{2}MM\d{4}')
 
     # Build grid boundaries directly from track structure
     # We'll track which tracks were processed and create boundaries at track level
@@ -751,7 +782,7 @@ def read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir):
                 electrodes = rows * cols
                 if ied > 1 or electrodes > 4:
                     is_emg_grid = True
-                    grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                    grid_pattern = grid_pattern_from_info(grid_info)
 
             # Only create boundaries for valid EMG grids
             if is_emg_grid and grid_pattern:
@@ -911,11 +942,7 @@ def read_standard_otb4(signals, track_info_list, trapezoidal_tracks, tmpdir):
         for c in range(nchan):
             # If grid info is available, format description to match expected pattern
             if grid_info:
-                # Format: HD{IED}MM{rows:02d}{cols:02d}
-                ied = grid_info["IED"]
-                rows = grid_info["NRow"]
-                cols = grid_info["NColumn"]
-                grid_pattern = f"HD{ied:02d}MM{rows:02d}{cols:02d}"
+                grid_pattern = grid_pattern_from_info(grid_info)
                 desc = f"{dev} {grid_pattern} ch{c+1}"
                 # Add muscle information if available
                 if muscle:
