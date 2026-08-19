@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 
 from hdsemg_shared.motor_unit import (
-    BraceHeightResult,
-    brace_height_from_spike_train,
-    compute_brace_height,
+    BracePICResult,
+    brace_pic_from_spike_train,
+    compute_brace_pic,
     firing_times_from_binary,
     firing_times_from_indices,
     instantaneous_discharge_rate,
@@ -18,7 +18,7 @@ from hdsemg_shared.motor_unit import (
 def test_linear_trace_has_zero_brace_height():
     x = np.linspace(0.0, 30.0, 100)
     y = np.linspace(5.0, 25.0, 100)
-    res = compute_brace_height(y, x)
+    res = compute_brace_pic(y, x)
     assert res.brace_height_norm == pytest.approx(0.0, abs=1e-9)
     assert res.brace_height == pytest.approx(0.0, abs=1e-9)
     assert res.valid
@@ -31,7 +31,7 @@ def test_right_triangle_corner_is_about_100_percent():
     x = np.linspace(0.0, 30.0, n)
     y = np.full(n, 25.0)
     y[0] = 5.0
-    res = compute_brace_height(y, x, peak_idx=n - 1)
+    res = compute_brace_pic(y, x, peak_idx=n - 1)
     assert res.brace_height_norm == pytest.approx(100.0, abs=0.5)
 
 
@@ -40,7 +40,7 @@ def test_known_two_segment_trace_matches_hand_computation():
     # normalized deviations: [0, 0.25, 0] -> bh_norm = 25 %, brace at index 1.
     x = np.array([0.0, 1.0, 2.0])
     y = np.array([0.0, 3.0, 4.0])
-    res = compute_brace_height(y, x)
+    res = compute_brace_pic(y, x)
 
     assert res.brace_idx == 1
     assert res.brace_height_norm == pytest.approx(25.0)
@@ -55,7 +55,7 @@ def test_concave_down_trace_brace_point_is_interior():
     x = np.linspace(0.0, 10.0, 200)
     # sqrt-shaped: steep rise then attenuation, bowing above the chord.
     y = 20.0 * np.sqrt(x / 10.0) + 5.0
-    res = compute_brace_height(y, x)
+    res = compute_brace_pic(y, x)
     assert 0 < res.brace_idx < res.peak_idx
     assert res.brace_height_norm > 0
     assert res.acceleration_slope > res.attenuation_slope > 0
@@ -72,7 +72,7 @@ def test_exclusion_over_200_percent_and_negative_acceleration():
     # and the recruitment->brace chord has a negative slope.
     x = np.array([5.0, -6.0, 2.0, 10.0])
     y = np.array([0.0, 8.0, 9.0, 10.0])
-    res = compute_brace_height(y, x)
+    res = compute_brace_pic(y, x)
     assert not res.valid
     assert any("200" in r for r in res.exclusion_reasons)
     assert "negative acceleration slope" in res.exclusion_reasons
@@ -81,7 +81,7 @@ def test_exclusion_over_200_percent_and_negative_acceleration():
 def test_exclusion_peak_discharge_after_peak_torque():
     x = np.array([0.0, 1.0, 2.0, 1.5, 1.0])   # torque peaks at index 2
     y = np.array([0.0, 2.0, 4.0, 6.0, 8.0])   # discharge peaks at index 4
-    res = compute_brace_height(y, x)
+    res = compute_brace_pic(y, x)
     assert res.peak_idx == 4
     assert not res.valid
     assert "peak discharge after peak force/torque" in res.exclusion_reasons
@@ -89,7 +89,7 @@ def test_exclusion_peak_discharge_after_peak_torque():
 
 def test_degenerate_segment_raises():
     with pytest.raises(ValueError):
-        compute_brace_height(np.array([1.0, 2.0]), np.array([0.0, 1.0]))
+        compute_brace_pic(np.array([1.0, 2.0]), np.array([0.0, 1.0]))
 
 
 # ---------------------------------------------------------------------------
@@ -146,14 +146,14 @@ def test_binary_and_indices_give_identical_results():
     train = np.zeros(length)
     train[indices] = 1
 
-    res_bin = brace_height_from_spike_train(
+    res_bin = brace_pic_from_spike_train(
         train, reference, fsamp, kind="binary", smoother=_linear_smoother
     )
-    res_idx = brace_height_from_spike_train(
+    res_idx = brace_pic_from_spike_train(
         indices, reference, fsamp, kind="indices", smoother=_linear_smoother
     )
 
-    assert isinstance(res_bin, BraceHeightResult)
+    assert isinstance(res_bin, BracePICResult)
     assert res_bin.brace_height_norm == pytest.approx(res_idx.brace_height_norm)
     assert res_bin.acceleration_slope == pytest.approx(res_idx.acceleration_slope)
     assert res_bin.attenuation_slope == pytest.approx(res_idx.attenuation_slope)
@@ -165,10 +165,10 @@ def test_auto_kind_detection_matches_explicit():
     length = int(indices[-1]) + 1
     reference = np.linspace(0.0, 30.0, length)
 
-    res_auto = brace_height_from_spike_train(
+    res_auto = brace_pic_from_spike_train(
         indices, reference, fsamp, smoother=_linear_smoother
     )
-    res_idx = brace_height_from_spike_train(
+    res_idx = brace_pic_from_spike_train(
         indices, reference, fsamp, kind="indices", smoother=_linear_smoother
     )
     assert res_auto.brace_height_norm == pytest.approx(res_idx.brace_height_norm)
