@@ -34,20 +34,24 @@ This repository contains modular Python implementations of key global surface EM
 - **Description**: Quantifies signal complexity.
 - **Reference**: Bandt & Pompe (2002), CEDE SMU Matrix
 
-### 7. Envelope (ARV, RMS, MDN)
-- **Description**: Smoothed EMG amplitude using low-pass filtering.
-- **Processing**: Bandpass → Rectification → Low-pass
-- **Reference**: CEDE-Check, Merletti & Farina
+### 7. Global Amplitude
+- **Description**: Reduces a whole HDsEMG grid to one amplitude over time.
+- **Processing**: Map → MP/SD/DD → Bandpass → Square (or rectify) → Smooth → Mean over channels → Root **last**
+- **Formula**: `A(t) = sqrt(mean_ch(smooth(xᵢ(t)²)))`, ARV drops the root
+- **Reference**: Merletti & Cerone eq. 5.1/5.2; Del Vecchio et al. (2025)
 
 ---
 
 ## 🛠️ Usage
 
-Each function is fully modular and requires only NumPy (plus SciPy for envelope and Welch analysis). Simply copy the relevant `.py` file and import the function.
+Everything here needs only NumPy and SciPy.
 
 ```python
-from rms import root_mean_square
+from hdsemg_shared.global_parameters.RMS import root_mean_square
 value = root_mean_square(signal)
+
+from hdsemg_shared.global_parameters import global_amplitude
+out = global_amplitude(emg.T, emg_map, fs, method='RMS')
 ```
 
 ---

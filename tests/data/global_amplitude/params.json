@@ -1,0 +1,27 @@
+{
+  "fs": 2048,
+  "gridShape_nCols_nRows": [
+    3,
+    4
+  ],
+  "nChannels": 12,
+  "duration_s": 4,
+  "bpf": {
+    "N": 2,
+    "fcl": 30,
+    "fch": 450
+  },
+  "lpf": {
+    "N": 2,
+    "fc": 6
+  },
+  "badChannels_1based_matlab": [
+    5,
+    8
+  ],
+  "badChannels_0based_python": [
+    4,
+    7
+  ],
+  "notes": "clean/ has no bad channels; badch/ has the two channels listed in badChannels_0based_python set to NaN in input_raw_mp.csv before any processing (matches MATLAB pipeline ordering: bad-channel NaN-masking happens on the raw, unfiltered signal)."
+}
