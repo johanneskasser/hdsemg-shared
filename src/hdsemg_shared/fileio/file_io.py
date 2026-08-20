@@ -3,11 +3,15 @@ from dataclasses import dataclass, field
 from typing import Optional
 import numpy as np
 import os, time, json, re, uuid, requests
+import logging
 
 from .matlab_file_io import MatFileIO
 from .otb_plus_file_io import load_otb_file
 from .otb_4_file_io import load_otb4_file
 from .edf_file_io import load_edf_file
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 # -----------------------------------------------------------------------------
 # Grid dataclass
@@ -26,6 +30,8 @@ class Grid:
         electrodes: Total number of active electrodes
         grid_key: Unique identifier key (format: "{ied}mm_{rows}x{cols}" or with "_N" suffix)
         grid_uid: Unique UUID for this grid instance
+        model_code: Raw electrode model code as written in the file (e.g. "HD10MM0408"),
+            preserved even when rows/cols were normalized against the product catalog
         muscle: Optional muscle name where grid is placed (extracted from OTB4 XML <Muscle> tag)
         requested_path_idx: Optional index of "requested path" description entry
         performed_path_idx: Optional index of "performed path" description entry
@@ -38,6 +44,7 @@ class Grid:
     electrodes: int
     grid_key: str
     grid_uid: str = field(default_factory=lambda: str(uuid.uuid4()))
+    model_code: Optional[str] = None
     muscle: Optional[str] = None
     requested_path_idx: Optional[int] = None
     performed_path_idx: Optional[int] = None
@@ -122,7 +129,7 @@ class EMGFile:
             return self._grids
 
         desc = self.description
-        pattern = re.compile(r"HD(\d{2})MM(\d{2})(\d{2})")
+        pattern = re.compile(r"(HD|GR)(\d{2})MM(\d{2})(\d{2})")
         muscle_pattern = re.compile(r"\[MUSCLE:(.*?)\]")
 
         # Instead of dict, use list to allow multiple grids with same specs
@@ -164,7 +171,10 @@ class EMGFile:
             # Check if within tolerance of the last index
             return abs(new_idx - indices[-1]) <= tolerance
 
-        def find_or_create_grid(scale: int, rows: int, cols: int, idx: int, muscle: Optional[str] = None) -> dict:
+        def find_or_create_grid(scale: int, rows: int, cols: int, idx: int,
+                                muscle: Optional[str] = None,
+                                elec: Optional[int] = None,
+                                model_code: Optional[str] = None) -> dict:
             """Find existing grid with matching specs and contiguous indices, or create new one."""
             # Look for existing grid with same specs
             base_key = f"{scale}mm_{rows}x{cols}"
@@ -185,18 +195,6 @@ class EMGFile:
                     return grid_inst
 
             # No contiguous grid found, create new instance
-            # Look up electrode count from cache
-            prod = f"HD{scale:02d}MM{rows:02d}{cols:02d}".upper()
-            # Create transposed pattern
-            prod_transposed = f"HD{scale:02d}MM{cols:02d}{rows:02d}".upper()
-
-            elec = None
-            for g in grid_data:
-                g_prod_upper = g["product"].upper()
-                if g_prod_upper == prod or g_prod_upper == prod_transposed:
-                    elec = g["electrodes"]
-                    break
-
             if elec is None:
                 elec = rows * cols
 
@@ -218,6 +216,7 @@ class EMGFile:
                 "req_idx": None,
                 "perf_idx": None,
                 "grid_key": grid_key,
+                "model_code": model_code,
                 "muscle": None
             }
             grid_instances.append(new_grid)
@@ -227,7 +226,11 @@ class EMGFile:
             txt = entry_text(ent)
             m = pattern.search(txt)
             if m:
-                scale, rows, cols = map(int, m.groups())
+                prefix, scale, rows, cols = m.group(1).upper(), *map(int, m.groups()[1:])
+                model_code = m.group(0).upper()
+                rows, cols, elec = self._normalize_grid_dims(
+                    prefix, scale, rows, cols, grid_data
+                )
 
                 # Extract muscle information if present (do this BEFORE find_or_create_grid)
                 muscle = None
@@ -236,7 +239,8 @@ class EMGFile:
                     muscle = muscle_match.group(1).strip()
 
                 # Pass muscle info to find_or_create_grid for proper differentiation
-                current_grid = find_or_create_grid(scale, rows, cols, idx, muscle)
+                current_grid = find_or_create_grid(scale, rows, cols, idx, muscle,
+                                                   elec=elec, model_code=model_code)
                 current_grid["indices"].append(idx)
 
                 # Store muscle info in grid if not already set
@@ -262,6 +266,7 @@ class EMGFile:
                 ied_mm=gi["ied_mm"],
                 electrodes=gi["electrodes"],
                 grid_key=gi["grid_key"],
+                model_code=gi.get("model_code"),
                 muscle=gi.get("muscle"),
                 requested_path_idx=gi.get("req_idx"),
                 performed_path_idx=gi.get("perf_idx"),
@@ -276,6 +281,43 @@ class EMGFile:
         else:
             file_format = save_path.split('.')[-1].lower()
             raise ValueError(f"Unsupported save format: {file_format!r}")
+
+    @classmethod
+    def _normalize_grid_dims(cls, prefix: str, scale: int, rows: int, cols: int,
+                             grid_data: list[dict]) -> tuple[int, int, Optional[int]]:
+        """
+        Validate the parsed row/column digits against the product catalog.
+
+        OTBiolab sometimes writes the two 2-digit groups in reversed order
+        (e.g. "HD10MM0408" for the matrix that only exists as HD10MM0804).
+        The electrode count is identical either way, so the transposition is
+        invisible downstream. If the parsed order is not a real product but the
+        reversed order is, the reversed order wins and the swap is logged.
+
+        Returns (rows, cols, electrodes) - electrodes is None when the product
+        is unknown (empty/unavailable catalog), leaving rows/cols untouched.
+        """
+        catalog = {g["product"].upper(): g["electrodes"] for g in grid_data if "product" in g}
+        prod = f"{prefix}{scale:02d}MM{rows:02d}{cols:02d}"
+        prod_transposed = f"{prefix}{scale:02d}MM{cols:02d}{rows:02d}"
+
+        if prod in catalog:
+            return rows, cols, catalog[prod]
+
+        if prod_transposed in catalog:
+            logger.warning(
+                "Electrode model %s does not exist in the product catalog; "
+                "%s does. Normalizing grid to %dx%d (rows x cols).",
+                prod, prod_transposed, cols, rows,
+            )
+            return cols, rows, catalog[prod_transposed]
+
+        # Also hit by the pseudo-grids OTB4 emits for control/aux tracks, so debug.
+        logger.debug(
+            "Electrode model %s not found in the product catalog; "
+            "using the row/column order as written in the file.", prod,
+        )
+        return rows, cols, None
 
     @classmethod
     def _load_grid_data(cls) -> list[dict]:
