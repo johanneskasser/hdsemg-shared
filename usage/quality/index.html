@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>quality - hdsemg-shared</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">hdsemg-shared</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Installation</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../installation/conda/" class="dropdown-item">Conda</a>
+</li>
+                                    
+<li>
+    <a href="../../installation/pip/" class="dropdown-item">Pip</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Usage Documentation</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../fileio/" class="dropdown-item">fileio</a>
+</li>
+                                    
+<li>
+    <a href="../filters/" class="dropdown-item">filters</a>
+</li>
+                                    
+<li>
+    <a href="../preprocessing/" class="dropdown-item">preprocessing</a>
+</li>
+                                    
+<li>
+    <a href="../global_parameters/" class="dropdown-item">global_parameters</a>
+</li>
+                                    
+<li>
+    <a href="../motor_unit/" class="dropdown-item">motor_unit</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">quality</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../contributing/" class="nav-link">Contributing</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                            <li class="nav-item">
+                                <a rel="prev" href="../motor_unit/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../../contributing/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#quality" class="nav-link">Quality</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#channel-measures" class="nav-link">Channel measures</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#grid-propagation-direction-velocity-innervation-zone" class="nav-link">Grid propagation: direction, velocity, innervation zone</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#relationship-to-hdsemg-select" class="nav-link">Relationship to hdsemg-select</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="quality">Quality</h1>
+<p>Measures that say whether a recording is fit to analyse: one number per
+<strong>channel</strong>, and one answer per <strong>grid</strong>.</p>
+<p>Nothing in <code>hdsemg_shared.quality</code> returns a verdict. Every function returns a
+measured number, and where the threshold sits is the caller's decision — it
+depends on the muscle, the electrode, the task and the population, not on the
+measurement. That separation is what lets a quality gate store its evidence
+next to the human answer it produced, and re-derive either one without the
+other.</p>
+<pre><code class="language-python">from hdsemg_shared.quality import channel_amplitude, propagation
+</code></pre>
+<hr />
+<h2 id="channel-measures">Channel measures</h2>
+<p>All of them take a channel matrix, <strong>channels-by-samples</strong> — <code>EMGFile.data</code> is
+samples-by-channels, so pass <code>emg.data.T</code> — and return one entry per row. A
+channel that is entirely NaN, an excluded or unwired position, yields NaN
+rather than raising.</p>
+<table>
+<thead>
+<tr>
+<th>function</th>
+<th>question it answers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flat_channels</code></td>
+<td>is the electrode disconnected or saturated?</td>
+</tr>
+<tr>
+<td><code>channel_amplitude</code></td>
+<td>how strong is it, in-band?</td>
+</tr>
+<tr>
+<td><code>channel_spectrum</code></td>
+<td>where does its power sit — MNF and MDF?</td>
+</tr>
+<tr>
+<td><code>line_noise_ratio</code></td>
+<td>does it pick up the mains?</td>
+</tr>
+<tr>
+<td><code>clipping_fraction</code></td>
+<td>does it sit at the amplifier's rail?</td>
+</tr>
+<tr>
+<td><code>neighbor_correlation</code></td>
+<td>does it share anything with the electrodes next to it?</td>
+</tr>
+<tr>
+<td><code>robust_z</code></td>
+<td>how far from its own grid is any of the above?</td>
+</tr>
+</tbody>
+</table>
+<h3 id="finding-the-channels-that-carry-no-signal">Finding the channels that carry no signal</h3>
+<pre><code class="language-python">from hdsemg_shared.quality import flat_channels
+
+dead = flat_channels(emg.data.T)
+</code></pre>
+<p>A flat channel is not a small signal, it is no signal. Left in, it contributes
+zero energy to the mean square over the grid area and drags
+<code>global_amplitude</code> <strong>down</strong> in proportion to how many there are. Measured
+across five subjects, flat channels are always exactly zero and nothing else
+comes within 20 % of the grid median, so the default threshold sits in a wide
+empty gap.</p>
+<h3 id="scoring-a-channel-against-its-own-grid">Scoring a channel against its own grid</h3>
+<p>Absolute amplitudes vary between subjects, sessions and muscles, so the useful
+question is not "is this channel loud" but "is this channel unlike the rest of
+<em>this</em> grid". <code>robust_z</code> answers that with a median/MAD score:</p>
+<pre><code class="language-python">from hdsemg_shared.quality import channel_amplitude, robust_z
+
+amp = channel_amplitude(emg.data.T, fs)
+outliers = np.flatnonzero(np.abs(robust_z(amp.rms)) &gt; 3.5)
+</code></pre>
+<p>Median and MAD rather than mean and standard deviation, because the outliers
+being looked for are <em>in</em> the sample: with two bad channels, a classical
+z-score is inflated by exactly those two and hides the second one.</p>
+<h3 id="line-noise">Line noise</h3>
+<pre><code class="language-python">from hdsemg_shared.quality import line_noise_ratio
+
+noise = line_noise_ratio(emg.data.T, fs, freqs=(50.0, 100.0, 150.0))
+noise.ratio            # per channel, the worst of the three
+noise.per_frequency    # 3 x nChannels, one row per harmonic
+</code></pre>
+<p>The mean power within ±2 Hz of the line frequency, over the median power of
+the ring 2–20 Hz around it. A clean channel reads about <strong>1.4</strong>; mains pickup
+reads one to two orders of magnitude above.</p>
+<p>Two details differ from a naive peak test, and both matter:</p>
+<ul>
+<li>The background is a <strong>local ring</strong>, not the whole spectrum. sEMG power falls
+  by orders of magnitude above the signal band, so a whole-spectrum background
+  is dominated by near-empty high-frequency bins. Measured on a synthetic,
+  mains-free, band-limited signal, that mistake reported a ratio of <strong>898×</strong>.</li>
+<li>The peak window is reduced by its <strong>mean</strong>, not its maximum. The maximum of
+  <em>K</em> noisy bins grows like log <em>K</em>, so a max-based ratio drifts with record
+  length and has no fixed clean value.</li>
+</ul>
+<h3 id="neighbour-correlation-pass-a-high-activity-window">Neighbour correlation — pass a high-activity window</h3>
+<pre><code class="language-python">from hdsemg_shared.quality import neighbor_correlation
+
+r = neighbor_correlation(emg.data.T, emg_map, fs, window=peak_window)
+</code></pre>
+<p>A real channel shares its motor unit action potentials with the electrodes
+next to it; an isolated noisy one does not.</p>
+<p>!!! warning "Over a whole trial this measures nothing"
+    A force-tracking trial is mostly rest, and at rest neighbouring monopolar
+    channels share little but their own uncorrelated noise — so <code>r</code> collapses
+    toward zero for <strong>good</strong> channels too. Restrict it to a window where the
+    muscle is actually active. Calibrate the threshold on data known to be
+    good before rejecting anything with it; there is no universal value.</p>
+<hr />
+<h2 id="grid-propagation-direction-velocity-innervation-zone">Grid propagation: direction, velocity, innervation zone</h2>
+<pre><code class="language-python">from hdsemg_shared.quality import propagation
+
+prop = propagation(emg.data.T, emg_map, ied_mm=10.0, fs=fs, window=peak_window)
+
+prop.fiber_angle_deg          # 0 deg = along the grid COLUMN axis
+prop.propagation_score        # 0..1, does this grid see propagation at all
+prop.cv_reported_ms           # THE velocity — read this one
+prop.cv_status                # and read this before it
+prop.iz_detected, prop.iz_position_m
+</code></pre>
+<p>!!! warning "Read <code>cv_reported_ms</code>, not <code>conduction_velocity_ms</code>"
+    A conduction velocity is only defined where the potentials travel in a
+    <strong>single direction</strong>. Across an innervation zone they travel both ways, so
+    the whole-grid figure there is an average of two opposite propagations and
+    is not a velocity of anything.</p>
+<pre><code>`cv_reported_ms` switches to the one-sided estimate (`cv_side_ms`)
+whenever `cv_status == "iz_split"`, and equals `conduction_velocity_ms`
+otherwise. Reading it instead of choosing between the two by hand is what
+keeps an end-plate-averaged number out of a result.
+</code></pre>
+<p>Electrodes are projected onto a candidate direction, binned at half the
+inter-electrode distance, averaged within a bin, and consecutive bins are
+cross-correlated. Along the true fibre direction those adjacent-bin delays all
+have the <strong>same magnitude</strong> — one bin spacing divided by the conduction
+velocity.</p>
+<h3 id="read-cv_status-before-the-velocity">Read <code>cv_status</code> before the velocity</h3>
+<table>
+<thead>
+<tr>
+<th>status</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"ok"</code></td>
+<td>one propagation direction across the whole grid</td>
+</tr>
+<tr>
+<td><code>"iz_split"</code></td>
+<td>an innervation zone splits the grid; <code>cv_reported_ms</code> is the <strong>one-sided</strong> estimate, which is the only one defined here</td>
+</tr>
+<tr>
+<td><code>"too_few_pairs"</code></td>
+<td>fewer than four bin pairs existed at all; the velocity is NaN</td>
+</tr>
+<tr>
+<td><code>"out_of_range"</code></td>
+<td>bin pairs existed but none implied a physiological velocity; the velocity is NaN</td>
+</tr>
+</tbody>
+</table>
+<p>A status that says the velocity is not estimable is handed <code>NaN</code>, never a
+number — so a caller who reads the number first cannot mistake it for a
+measurement.</p>
+<p>!!! note "An innervation zone is a note, not a failure"
+    A grid straddling an innervation zone is perfectly usable for amplitude,
+    and its velocity survives here too — measured on <strong>one side</strong>, via
+    <code>cv_reported_ms</code>. <code>cv_status == "iz_split"</code> is information to report,
+    <strong>not</strong> a reason to discard the grid.</p>
+<h3 id="why-the-search-does-not-use-a-straight-line-fit">Why the search does not use a straight-line fit</h3>
+<p>The obvious criterion — regress delay against distance from a common anchor
+and take the direction with the best R² — fails exactly where it matters. Under
+an innervation zone the potentials travel <em>both</em> ways from the end-plate
+region, so delay against distance is V-shaped and its linear R² collapses.</p>
+<p>On a synthetic grid with a planted innervation zone, the true direction scored
+R² = 0.474 while a direction <em>across</em> the fibres, where every delay is
+identically zero, scored 0.480 and won. The reported velocity was 2.64 m/s of
+nothing at all.</p>
+<p>The adjacent-bin delays at that same true direction were</p>
+<pre><code>[2.93, 2.44, 2.44, 2.44, 2.44, -2.44, -2.44, -2.44, -2.44, -2.93, -2.44] ms
+</code></pre>
+<p>— one constant magnitude, one sign reversal: the correct velocity <em>and</em> the
+innervation zone, both plainly there. So the search scores</p>
+<pre><code>propagation_score = consistency x coherence x coverage
+</code></pre>
+<ul>
+<li><strong>consistency</strong> <code>(mean|d|)² / mean(d²)</code> — 1 when every delay has the same
+  magnitude, and <strong>blind to sign</strong>, so a reversal does not lower it;</li>
+<li><strong>coherence</strong> — the mean normalised cross-correlation at those delays.
+  Consistency alone is not enough: an oblique direction bins one or two
+  electrodes per bin, and sample quantisation then makes several delays land
+  on the same value by accident. A direction 87° off scored consistency 1.000
+  and coherence 0.652, against 0.998 at the true direction;</li>
+<li><strong>coverage</strong> — the share of bin pairs that implied a physiological velocity,
+  so a direction with two lucky pairs cannot beat one with twelve.</li>
+</ul>
+<p><code>r_squared</code> is still reported, because a <strong>low <code>r_squared</code> beside a high
+<code>propagation_score</code></strong> is itself the signature of an innervation zone.</p>
+<h3 id="checking-a-grids-assumed-orientation">Checking a grid's assumed orientation</h3>
+<p><code>propagation</code> measures which way the fibres actually run, which is what an
+SD/DD derivation axis should be checked against — far more informative than
+whether a reviewer ticked a box:</p>
+<pre><code class="language-python">prop = propagation(emg.data.T, emg_map, ied_mm, fs, window=peak_window)
+
+# 0 deg is the axis global_amplitude differences along with diff_direction='cols'
+axis_disagreement_deg = min(abs(prop.fiber_angle_deg),
+                            180 - abs(prop.fiber_angle_deg))
+trustworthy = prop.propagation_score &gt; 0.5
+</code></pre>
+<p>!!! warning "Pool the trials of a session before believing a disagreement"
+    An electrode grid is usually applied once and not moved again, so whether
+    it is rotated is a property of the <strong>session</strong>, not of a trial. A single
+    trial disagreeing is measurement noise by construction.</p>
+<pre><code>Measured over 96 grids of one participant, the disagreement was bimodal
+with an empty valley from 5° to 30° — but every grid had a *median* of
+exactly 0° with a third of its trials in the far tail, and those trials
+carried lower `propagation_score`. Pool a session's trials and take the
+majority; a grid whose trials *mostly* measure 90° really is mounted
+across the axis, and the remedy is to rotate the map, never to discard
+the grid.
+</code></pre>
+<hr />
+<h2 id="relationship-to-hdsemg-select">Relationship to <code>hdsemg-select</code></h2>
+<p><code>hdsemg_shared.quality.propagation</code> generalises <code>hdsemg-select</code>'s
+<code>FiberTrajectoryAnalyzer</code>: it takes an <code>emg_map</code> instead of that application's
+<code>grid</code> object and <code>display_grid</code> array, so it needs no electrode code table
+and nothing from the GUI. <code>line_noise_ratio</code> generalises that application's
+<code>auto_flagger</code> frequency test into a ratio rather than a label.</p>
+<p><code>auto_flagger._detect_artifact</code> is deliberately <strong>not</strong> ported — it flags
+variance <em>above</em> <code>1e-9</code>, which fires on every live channel. Use
+<code>flat_channels</code> for dead channels and <code>clipping_fraction</code> for artefacts.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+
+        <div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

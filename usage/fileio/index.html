@@ -74,6 +74,10 @@
 <li>
     <a href="../motor_unit/" class="dropdown-item">motor_unit</a>
 </li>
+                                    
+<li>
+    <a href="../quality/" class="dropdown-item">quality</a>
+</li>
                                 </ul>
                             </li>
                             <li class="nav-item">
@@ -353,6 +357,7 @@ emg.save(&quot;selected_subset.mat&quot;)
 
 
 
+
   <div class="doc doc-object doc-class">
 
 
@@ -447,7 +452,7 @@ EMGFile        </code>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span>
 
         <span class="n">desc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span>
-        <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"HD(\d</span><span class="si">{2}</span><span class="s2">)MM(\d</span><span class="si">{2}</span><span class="s2">)(\d</span><span class="si">{2}</span><span class="s2">)"</span><span class="p">)</span>
+        <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(HD|GR)(\d</span><span class="si">{2}</span><span class="s2">)MM(\d</span><span class="si">{2}</span><span class="s2">)(\d</span><span class="si">{2}</span><span class="s2">)"</span><span class="p">)</span>
         <span class="n">muscle_pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\[MUSCLE:(.*?)\]"</span><span class="p">)</span>
 
         <span class="c1"># Instead of dict, use list to allow multiple grids with same specs</span>
@@ -489,7 +494,10 @@ EMGFile        </code>
             <span class="c1"># Check if within tolerance of the last index</span>
             <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_idx</span> <span class="o">-</span> <span class="n">indices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tolerance</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">find_or_create_grid</span><span class="p">(</span><span class="n">scale</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">muscle</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">find_or_create_grid</span><span class="p">(</span><span class="n">scale</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                                <span class="n">muscle</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                <span class="n">elec</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                <span class="n">model_code</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">"""Find existing grid with matching specs and contiguous indices, or create new one."""</span>
             <span class="c1"># Look for existing grid with same specs</span>
             <span class="n">base_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">scale</span><span class="si">}</span><span class="s2">mm_</span><span class="si">{</span><span class="n">rows</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">cols</span><span class="si">}</span><span class="s2">"</span>
@@ -510,18 +518,6 @@ EMGFile        </code>
                     <span class="k">return</span> <span class="n">grid_inst</span>
 
             <span class="c1"># No contiguous grid found, create new instance</span>
-            <span class="c1"># Look up electrode count from cache</span>
-            <span class="n">prod</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"HD</span><span class="si">{</span><span class="n">scale</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">MM</span><span class="si">{</span><span class="n">rows</span><span class="si">:</span><span class="s2">02d</span><span class="si">}{</span><span class="n">cols</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-            <span class="c1"># Create transposed pattern</span>
-            <span class="n">prod_transposed</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"HD</span><span class="si">{</span><span class="n">scale</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">MM</span><span class="si">{</span><span class="n">cols</span><span class="si">:</span><span class="s2">02d</span><span class="si">}{</span><span class="n">rows</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-
-            <span class="n">elec</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid_data</span><span class="p">:</span>
-                <span class="n">g_prod_upper</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">"product"</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">g_prod_upper</span> <span class="o">==</span> <span class="n">prod</span> <span class="ow">or</span> <span class="n">g_prod_upper</span> <span class="o">==</span> <span class="n">prod_transposed</span><span class="p">:</span>
-                    <span class="n">elec</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">"electrodes"</span><span class="p">]</span>
-                    <span class="k">break</span>
-
             <span class="k">if</span> <span class="n">elec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">elec</span> <span class="o">=</span> <span class="n">rows</span> <span class="o">*</span> <span class="n">cols</span>
 
@@ -543,6 +539,7 @@ EMGFile        </code>
                 <span class="s2">"req_idx"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
                 <span class="s2">"perf_idx"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
                 <span class="s2">"grid_key"</span><span class="p">:</span> <span class="n">grid_key</span><span class="p">,</span>
+                <span class="s2">"model_code"</span><span class="p">:</span> <span class="n">model_code</span><span class="p">,</span>
                 <span class="s2">"muscle"</span><span class="p">:</span> <span class="kc">None</span>
             <span class="p">}</span>
             <span class="n">grid_instances</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_grid</span><span class="p">)</span>
@@ -552,7 +549,11 @@ EMGFile        </code>
             <span class="n">txt</span> <span class="o">=</span> <span class="n">entry_text</span><span class="p">(</span><span class="n">ent</span><span class="p">)</span>
             <span class="n">m</span> <span class="o">=</span> <span class="n">pattern</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">txt</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
-                <span class="n">scale</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">groups</span><span class="p">())</span>
+                <span class="n">prefix</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">1</span><span class="p">:])</span>
+                <span class="n">model_code</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">elec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalize_grid_dims</span><span class="p">(</span>
+                    <span class="n">prefix</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">grid_data</span>
+                <span class="p">)</span>
 
                 <span class="c1"># Extract muscle information if present (do this BEFORE find_or_create_grid)</span>
                 <span class="n">muscle</span> <span class="o">=</span> <span class="kc">None</span>
@@ -561,7 +562,8 @@ EMGFile        </code>
                     <span class="n">muscle</span> <span class="o">=</span> <span class="n">muscle_match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
 
                 <span class="c1"># Pass muscle info to find_or_create_grid for proper differentiation</span>
-                <span class="n">current_grid</span> <span class="o">=</span> <span class="n">find_or_create_grid</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">muscle</span><span class="p">)</span>
+                <span class="n">current_grid</span> <span class="o">=</span> <span class="n">find_or_create_grid</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">muscle</span><span class="p">,</span>
+                                                   <span class="n">elec</span><span class="o">=</span><span class="n">elec</span><span class="p">,</span> <span class="n">model_code</span><span class="o">=</span><span class="n">model_code</span><span class="p">)</span>
                 <span class="n">current_grid</span><span class="p">[</span><span class="s2">"indices"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
 
                 <span class="c1"># Store muscle info in grid if not already set</span>
@@ -587,6 +589,7 @@ EMGFile        </code>
                 <span class="n">ied_mm</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">"ied_mm"</span><span class="p">],</span>
                 <span class="n">electrodes</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">"electrodes"</span><span class="p">],</span>
                 <span class="n">grid_key</span><span class="o">=</span><span class="n">gi</span><span class="p">[</span><span class="s2">"grid_key"</span><span class="p">],</span>
+                <span class="n">model_code</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"model_code"</span><span class="p">),</span>
                 <span class="n">muscle</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"muscle"</span><span class="p">),</span>
                 <span class="n">requested_path_idx</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"req_idx"</span><span class="p">),</span>
                 <span class="n">performed_path_idx</span><span class="o">=</span><span class="n">gi</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"perf_idx"</span><span class="p">),</span>
@@ -601,6 +604,43 @@ EMGFile        </code>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">file_format</span> <span class="o">=</span> <span class="n">save_path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported save format: </span><span class="si">{</span><span class="n">file_format</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_grid_dims</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                             <span class="n">grid_data</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Validate the parsed row/column digits against the product catalog.</span>
+
+<span class="sd">        OTBiolab sometimes writes the two 2-digit groups in reversed order</span>
+<span class="sd">        (e.g. "HD10MM0408" for the matrix that only exists as HD10MM0804).</span>
+<span class="sd">        The electrode count is identical either way, so the transposition is</span>
+<span class="sd">        invisible downstream. If the parsed order is not a real product but the</span>
+<span class="sd">        reversed order is, the reversed order wins and the swap is logged.</span>
+
+<span class="sd">        Returns (rows, cols, electrodes) - electrodes is None when the product</span>
+<span class="sd">        is unknown (empty/unavailable catalog), leaving rows/cols untouched.</span>
+<span class="sd">        """</span>
+        <span class="n">catalog</span> <span class="o">=</span> <span class="p">{</span><span class="n">g</span><span class="p">[</span><span class="s2">"product"</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span> <span class="n">g</span><span class="p">[</span><span class="s2">"electrodes"</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid_data</span> <span class="k">if</span> <span class="s2">"product"</span> <span class="ow">in</span> <span class="n">g</span><span class="p">}</span>
+        <span class="n">prod</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}{</span><span class="n">scale</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">MM</span><span class="si">{</span><span class="n">rows</span><span class="si">:</span><span class="s2">02d</span><span class="si">}{</span><span class="n">cols</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">prod_transposed</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}{</span><span class="n">scale</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">MM</span><span class="si">{</span><span class="n">cols</span><span class="si">:</span><span class="s2">02d</span><span class="si">}{</span><span class="n">rows</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="k">if</span> <span class="n">prod</span> <span class="ow">in</span> <span class="n">catalog</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">catalog</span><span class="p">[</span><span class="n">prod</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">prod_transposed</span> <span class="ow">in</span> <span class="n">catalog</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"Electrode model </span><span class="si">%s</span><span class="s2"> does not exist in the product catalog; "</span>
+                <span class="s2">"</span><span class="si">%s</span><span class="s2"> does. Normalizing grid to </span><span class="si">%d</span><span class="s2">x</span><span class="si">%d</span><span class="s2"> (rows x cols)."</span><span class="p">,</span>
+                <span class="n">prod</span><span class="p">,</span> <span class="n">prod_transposed</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">cols</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">catalog</span><span class="p">[</span><span class="n">prod_transposed</span><span class="p">]</span>
+
+        <span class="c1"># Also hit by the pseudo-grids OTB4 emits for control/aux tracks, so debug.</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">"Electrode model </span><span class="si">%s</span><span class="s2"> not found in the product catalog; "</span>
+            <span class="s2">"using the row/column order as written in the file."</span><span class="p">,</span> <span class="n">prod</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="kc">None</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_grid_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
@@ -1055,6 +1095,12 @@ Grid        </code>
         <td><p>Unique UUID for this grid instance</p></td>
       </tr>
       <tr>
+        <td><code>model_code</code></td>
+        <td><code>str | None</code></td>
+        <td><p>Raw electrode model code as written in the file (e.g. "HD10MM0408"),
+preserved even when rows/cols were normalized against the product catalog</p></td>
+      </tr>
+      <tr>
         <td><code>muscle</code></td>
         <td><code>str | None</code></td>
         <td><p>Optional muscle name where grid is placed (extracted from OTB4 XML <Muscle> tag)</p></td>
@@ -1087,6 +1133,8 @@ Grid        </code>
 <span class="sd">        electrodes: Total number of active electrodes</span>
 <span class="sd">        grid_key: Unique identifier key (format: "{ied}mm_{rows}x{cols}" or with "_N" suffix)</span>
 <span class="sd">        grid_uid: Unique UUID for this grid instance</span>
+<span class="sd">        model_code: Raw electrode model code as written in the file (e.g. "HD10MM0408"),</span>
+<span class="sd">            preserved even when rows/cols were normalized against the product catalog</span>
 <span class="sd">        muscle: Optional muscle name where grid is placed (extracted from OTB4 XML &lt;Muscle&gt; tag)</span>
 <span class="sd">        requested_path_idx: Optional index of "requested path" description entry</span>
 <span class="sd">        performed_path_idx: Optional index of "performed path" description entry</span>
@@ -1099,6 +1147,7 @@ Grid        </code>
     <span class="n">electrodes</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">grid_key</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">grid_uid</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()))</span>
+    <span class="n">model_code</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">muscle</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">requested_path_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">performed_path_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1108,6 +1157,7 @@ Grid        </code>
 
 
   <div class="doc doc-children">
+
 
 
 

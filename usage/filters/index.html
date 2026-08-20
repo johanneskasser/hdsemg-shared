@@ -74,6 +74,10 @@
 <li>
     <a href="../motor_unit/" class="dropdown-item">motor_unit</a>
 </li>
+                                    
+<li>
+    <a href="../quality/" class="dropdown-item">quality</a>
+</li>
                                 </ul>
                             </li>
                             <li class="nav-item">
@@ -116,6 +120,22 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#bandpass-filter-with-exact-corners" class="nav-link">Bandpass Filter with Exact Corners</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#lowpass-filter" class="nav-link">Lowpass Filter</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#smoothing" class="nav-link">Smoothing</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#padding" class="nav-link">Padding</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#future-extensions" class="nav-link">Future Extensions</a>
               <ul class="nav flex-column">
               </ul>
@@ -138,38 +158,38 @@
 <h1 id="filters">Filters</h1>
 <p>The <code>filters</code> package provides digital signal processing filters specifically designed for HD-sEMG signal processing. All filters are implemented with a focus on phase preservation and numerical stability.</p>
 <h2 id="bandpass-filter">Bandpass Filter</h2>
-<p>The package provides a zero-phase Butterworth bandpass filter implementation that is particularly suited for EMG signal processing. The filter is implemented using SciPy's <code>butter</code> and <code>sosfiltfilt</code> functions for optimal numerical stability.</p>
+<p>The package provides a zero-phase Butterworth bandpass filter implementation that is particularly suited for EMG signal processing. It is an exact replica of Ton van den Bogert's MATLAB <code>bandpassfilter</code> (<a href="https://biomch-l.isbweb.org/archive/index.php/t-26625.html">reference</a>): the requested order is halved, the halved order is used in the pre-warping constant, and the filter is then applied forwards and backwards so the effective order is the requested one again.</p>
 <h3 id="api-reference">API Reference</h3>
-<pre><code class="language-python">def bandpass_filter(data: np.ndarray, order: int, lowcut: float, highcut: float, fs: float) -&gt; np.ndarray:
-    &quot;&quot;&quot;Apply a zero-phase Butterworth bandpass filter to 1D data.&quot;&quot;&quot;
+<pre><code class="language-python">def bandpass_filter(data: np.ndarray, N: int, fcl: float, fch: float, fs: float) -&gt; np.ndarray:
+    &quot;&quot;&quot;Apply a zero-phase Butterworth bandpass filter.&quot;&quot;&quot;
 </code></pre>
 <h4 id="parameters">Parameters</h4>
 <ul>
 <li>
 <p><strong>data</strong> (<code>np.ndarray</code>): </p>
 <ul>
-<li>1D array of signal samples to be filtered</li>
-<li>Shape: (n_samples,)</li>
+<li>Signal samples to be filtered</li>
+<li>Shape: (n_samples,), or (n_channels, n_samples) — filtering runs along the last axis, so each channel row is filtered independently</li>
 <li>Type: float</li>
 </ul>
 </li>
 <li>
-<p><strong>order</strong> (<code>int</code>): </p>
+<p><strong>N</strong> (<code>int</code>): </p>
 <ul>
-<li>Filter order</li>
-<li>Higher orders give sharper cutoffs but may introduce more numerical artifacts</li>
+<li><em>Total</em> filter order, must be <strong>even</strong> and &gt;= 2</li>
+<li>Halved internally, then doubled again by the forward/backward application</li>
 <li>Typical values: 2-8</li>
 </ul>
 </li>
 <li>
-<p><strong>lowcut</strong> (<code>float</code>): </p>
+<p><strong>fcl</strong> (<code>float</code>): </p>
 <ul>
 <li>Lower cutoff frequency in Hz</li>
 <li>Typical EMG values: 10-30 Hz</li>
 </ul>
 </li>
 <li>
-<p><strong>highcut</strong> (<code>float</code>): </p>
+<p><strong>fch</strong> (<code>float</code>): </p>
 <ul>
 <li>Upper cutoff frequency in Hz</li>
 <li>Typical EMG values: 400-500 Hz</li>
@@ -179,7 +199,7 @@
 <p><strong>fs</strong> (<code>float</code>): </p>
 <ul>
 <li>Sampling frequency in Hz</li>
-<li>Must be at least 2x the highest frequency component (Nyquist criterion)</li>
+<li>Because of the pre-warping, the Nyquist criterion alone is <strong>not</strong> sufficient: <code>fs</code> must satisfy <code>fs &gt; 2*fch/beta</code> with <code>beta = (sqrt(2)-1)**(1/N)</code>. For <code>N=2</code> that is <code>fs &gt; 3.11*fch</code>, not <code>fs &gt; 2*fch</code></li>
 </ul>
 </li>
 </ul>
@@ -192,12 +212,21 @@
 </ul>
 </li>
 </ul>
+<h4 id="raises">Raises</h4>
+<ul>
+<li><strong>ValueError</strong>:<ul>
+<li>If <code>N</code> is not an even integer &gt;= 2</li>
+<li>If the cutoffs do not satisfy <code>0 &lt; fcl &lt; fch</code></li>
+<li>If <code>fs</code> is too small for the requested cutoffs (see above). MATLAB errors on exactly the same inputs; before 2026-08 this function clipped the normalised cutoffs instead and returned a finite but <strong>wrong</strong> result</li>
+</ul>
+</li>
+</ul>
 <h3 id="implementation-details">Implementation Details</h3>
 <p>The filter uses:
 - Butterworth filter design for maximally flat frequency response
-- Second-order sections (SOS) form for improved numerical stability
-- Zero-phase filtering via forward-backward application (sosfiltfilt)
-- Automatic scaling of frequencies to Nyquist frequency</p>
+- Transfer-function (<code>b</code>, <code>a</code>) form with <code>filtfilt</code>, using MATLAB's default padding (<code>padtype='odd'</code>, <code>padlen=3*(max(len(a),len(b))-1)</code>) rather than SciPy's defaults, which measurably diverge from MATLAB on short signals
+- Zero-phase filtering via forward-backward application (<code>filtfilt</code>)
+- Pre-warped cutoff scaling so the <em>double-pass</em> response has its -3 dB points at the requested frequencies</p>
 <h3 id="example-usage">Example Usage</h3>
 <pre><code class="language-python">import numpy as np
 from hdsemg_shared.filters.bandpass import bandpass_filter
@@ -210,27 +239,28 @@ emg = np.random.randn(fs)  # Simulated noise-like EMG
 # Apply bandpass filter (20-450 Hz, 4th order)
 filtered_emg = bandpass_filter(
     data=emg,
-    order=4,
-    lowcut=20,    # Remove low-frequency drift
-    highcut=450,  # Remove high-frequency noise
+    N=4,        # total order, must be even
+    fcl=20,     # Remove low-frequency drift
+    fch=450,    # Remove high-frequency noise
     fs=fs
 )
 </code></pre>
 <h3 id="best-practices">Best Practices</h3>
 <ol>
 <li><strong>Filter Order Selection</strong>:</li>
-<li>Start with order=4 for most applications</li>
-<li>Increase order if you need sharper cutoffs</li>
+<li>Start with N=4 for most applications</li>
+<li>N must be even (it is halved internally for the bi-directional pass)</li>
+<li>Increase N if you need sharper cutoffs</li>
 <li>
-<p>Decrease order if you observe ringing artifacts</p>
+<p>Decrease N if you observe ringing artifacts</p>
 </li>
 <li>
 <p><strong>Frequency Selection</strong>:</p>
 </li>
-<li>For surface EMG: lowcut=20Hz, highcut=450Hz is typical</li>
+<li>For surface EMG: fcl=20Hz, fch=450Hz is typical</li>
 <li>Adjust based on your specific application and noise conditions</li>
 <li>
-<p>Ensure highcut &lt; fs/2 (Nyquist frequency)</p>
+<p>Ensure <code>fs &gt; 2*fch/(sqrt(2)-1)**(1/N)</code>, which is stricter than the plain Nyquist criterion <code>fch &lt; fs/2</code> — the function raises otherwise</p>
 </li>
 <li>
 <p><strong>Edge Effects</strong>:</p>
@@ -244,17 +274,116 @@ filtered_emg = bandpass_filter(
 <li>Isolating the main EMG frequency band (20-450 Hz)</li>
 <li>Pre-processing before amplitude analysis or feature extraction</li>
 </ul>
+<h2 id="bandpass-filter-with-exact-corners">Bandpass Filter with Exact Corners</h2>
+<p><code>bandpass_filter_exact_corners(data, N, fcl, fch, fs)</code> band-passes each channel
+with its realised -3 dB points landing <strong>exactly</strong> on <code>fcl</code> and <code>fch</code>.</p>
+<h3 id="why-both-band-passes-exist">Why both band-passes exist</h3>
+<p><code>bandpass_filter</code> is an exact replica of Ton van den Bogert's MATLAB original,
+whose <code>beta</code> pre-warp is derived for a <strong>single</strong> corner. A band-pass
+Butterworth has no such closed form, so dividing <strong>both</strong> corners by
+<code>beta &lt; 1</code> pushes both up by <code>1/beta = 1.554</code>. Measured at <code>fs = 2048 Hz</code>,
+<code>N = 2</code>:</p>
+<table>
+<thead>
+<tr>
+<th>requested</th>
+<th>realised by <code>bandpass_filter</code></th>
+<th>realised by <code>bandpass_filter_exact_corners</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>15–450 Hz</td>
+<td>35.3–574.9 Hz</td>
+<td>15.0–450.0 Hz</td>
+</tr>
+<tr>
+<td>30–450 Hz</td>
+<td>68.8–582.3 Hz</td>
+<td>30.0–450.0 Hz</td>
+</tr>
+</tbody>
+</table>
+<p><code>bandpass_filter</code> is deliberately <strong>not</strong> changed — every current caller
+depends on those numbers, and it is what reproduces MATLAB output. Use the
+exact-corner variant when the documented cut-offs must be the real ones.</p>
+<pre><code class="language-python">from hdsemg_shared.filters.bandpass import bandpass_filter_exact_corners
+
+filtered = bandpass_filter_exact_corners(emg, N=2, fcl=15.0, fch=450.0, fs=2048.0)
+</code></pre>
+<p>The solved upper corner sits <em>above</em> <code>fch</code> for a two-pass filter, so keep
+<code>fch</code> well below <code>fs/2</code>.</p>
+<h2 id="lowpass-filter">Lowpass Filter</h2>
+<p><code>lowpass_filter(data, N, fc, fs)</code> — the same pre-warp and the same
+bi-directional application as <code>bandpass_filter</code>, for a single corner. That is
+the case the pre-warp <em>is</em> exact for, so the realised -3 dB point lands on
+<code>fc</code> and no exact-corner variant is needed (verified: 15.000 Hz for <code>N = 2</code>
+and <code>N = 4</code>).</p>
+<pre><code class="language-python">from hdsemg_shared.filters.lowpass import lowpass_filter
+
+envelope = lowpass_filter(np.abs(filtered), N=2, fc=15.0, fs=2048.0)
+</code></pre>
+<h2 id="smoothing">Smoothing</h2>
+<p><code>moving_average(data, fs, window_s=None, fc=None, kernel='bidirectional')</code> is
+the second way to smooth an envelope: a zero-phase boxcar instead of a
+Butterworth. Given the same <code>fc</code> the two attenuate a sine at <code>fc</code> identically,
+so the choice changes kernel shape, never bandwidth.</p>
+<ul>
+<li><code>'bidirectional'</code> (default) — two boxcar passes, i.e. a triangular kernel.</li>
+<li><code>'rectangular'</code> — one plain boxcar. With a window as long as the signal
+  every sample returns the plain unweighted mean over the whole signal, which
+  the triangular kernel does not. Use it wherever exact agreement with an
+  epoch mean is the point.</li>
+</ul>
+<p><code>window_length_for_cutoff(fc, fs, kernel)</code> returns the window a given <code>fc</code>
+implies — roughly <code>0.319 * fs / fc</code> for the default kernel, so 44 samples at
+<code>fs = 2048 Hz</code>, <code>fc = 15 Hz</code>.</p>
+<h2 id="padding">Padding</h2>
+<p>Filtering a finite signal disturbs both ends, and <code>filtfilt</code> pads by only 3
+samples. <code>reflect_pad(data, pad)</code> / <code>trim_pad(data, pad)</code> extend each channel
+with an <strong>even</strong> reflection of its own leading and trailing samples and remove
+it again afterwards. <code>pad_samples(n_samples, fs, pad_s)</code> gives the sample count
+both agree on.</p>
+<p>Measured over 300 white-noise realisations, bias of the leading 64 samples:</p>
+<table>
+<thead>
+<tr>
+<th>padding</th>
+<th>band-pass</th>
+<th>lowpass</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>none</td>
+<td>+8.54 %</td>
+<td>-0.66 %</td>
+</tr>
+<tr>
+<td>odd reflection (what <code>filtfilt</code> does)</td>
+<td>+9.16 %</td>
+<td>-0.84 %</td>
+</tr>
+<tr>
+<td>even reflection (here)</td>
+<td>-0.28 %</td>
+<td>-0.01 %</td>
+</tr>
+</tbody>
+</table>
+<p>Odd reflection does not fix the band-pass at all, so this is not a redundant
+second pad. <code>global_amplitude</code> applies it through its <code>pad_s</code> argument.</p>
 <h2 id="future-extensions">Future Extensions</h2>
 <p>The filters package is designed to be extensible. Planned or possible additions include:</p>
 <ul>
 <li>Notch filters for power line interference</li>
 <li>Adaptive filters for specific noise types</li>
 <li>Wavelet-based filtering approaches</li>
-<li>Multi-channel filtering utilities</li>
 </ul>
 <h2 id="source-code">Source Code</h2>
 <blockquote>
-<p>The implementation can be found in <code>src/hdsemg_shared/filters/bandpass.py</code>. </p>
+<p>The implementations can be found in <code>src/hdsemg_shared/filters/</code> —
+<code>bandpass.py</code>, <code>lowpass.py</code>, <code>smoothing.py</code> and <code>padding.py</code>.</p>
 </blockquote>
 <h2 id="api-dokumentation">API Dokumentation</h2>
 
@@ -264,6 +393,19 @@ filtered_emg = bandpass_filter(
 <a id="hdsemg_shared.filters.bandpass"></a>
     <div class="doc doc-contents first">
 
+      <p>BANDPASS: zero-phase Butterworth band-pass, in two variants</p>
+<p>bandpass_filter               ... exact replica of Ton van den Bogert's
+                                     MATLAB bandpassfilter. Its pre-warp is
+                                     derived for a SINGLE corner, so both
+                                     band-pass corners land ~1.554x high
+  bandpass_filter_exact_corners ... solves for the corners numerically, so
+                                     the realised -3 dB points land on the
+                                     requested ones</p>
+<p>Both filter a vector, or each row of a channels-by-samples matrix, on its
+  own. Keep bandpass_filter for MATLAB agreement, use the exact-corner
+  variant when the documented cut-offs must be the real ones.</p>
+<p>CREDIT Ton van den Bogert,
+  https://biomch-l.isbweb.org/archive/index.php/t-26625.html</p>
 
 
 
@@ -301,10 +443,19 @@ N : int
 fcl, fch : float
     Lower and higher cut-off frequencies [Hz].
 fs : float
-    Sampling frequency [Hz].</p>
+    Sampling frequency [Hz].
+    Must satisfy fs &gt; 2<em>fch/beta with beta = (sqrt(2)-1)</em>*(1/N), i.e. the
+    normalised cut-offs handed to butter() must stay below 1, otherwise a
+    ValueError is raised (see the guard below). MATLAB errors on the same
+    inputs; earlier versions of this function clipped instead and returned
+    a finite but wrong result.</p>
 <h5 id="hdsemg_shared.filters.bandpass.bandpass_filter--returns">Returns</h5>
 <p>fdata : ndarray
     Zero-phase band-pass filtered signal (same length as <code>data</code>).</p>
+<h5 id="hdsemg_shared.filters.bandpass.bandpass_filter--raises">Raises</h5>
+<p>ValueError
+    If N is not an even integer &gt;= 2, if the cut-offs do not satisfy
+    0 &lt; fcl &lt; fch, or if <code>fs</code> is too small for the requested cut-offs.</p>
 
         <details class="quote">
           <summary>Source code in <code>hdsemg_shared/filters/bandpass.py</code></summary>
@@ -330,11 +481,22 @@ fs : float
 <span class="sd">        Lower and higher cut-off frequencies [Hz].</span>
 <span class="sd">    fs : float</span>
 <span class="sd">        Sampling frequency [Hz].</span>
+<span class="sd">        Must satisfy fs &gt; 2*fch/beta with beta = (sqrt(2)-1)**(1/N), i.e. the</span>
+<span class="sd">        normalised cut-offs handed to butter() must stay below 1, otherwise a</span>
+<span class="sd">        ValueError is raised (see the guard below). MATLAB errors on the same</span>
+<span class="sd">        inputs; earlier versions of this function clipped instead and returned</span>
+<span class="sd">        a finite but wrong result.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    fdata : ndarray</span>
 <span class="sd">        Zero-phase band-pass filtered signal (same length as `data`).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If N is not an even integer &gt;= 2, if the cut-offs do not satisfy</span>
+<span class="sd">        0 &lt; fcl &lt; fch, or if `fs` is too small for the requested cut-offs.</span>
 <span class="sd">    """</span>
 
     <span class="c1"># ------------- 1. argument checks  ----------</span>
@@ -354,7 +516,39 @@ fs : float
     <span class="n">halfN</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="mi">2</span>  <span class="c1"># order actually given to butter()</span>
     <span class="n">beta</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">halfN</span><span class="p">))</span>  <span class="c1"># pre-warping constant (uses HALVED order)</span>
     <span class="n">Wn</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">]))</span> <span class="o">/</span> <span class="p">(</span><span class="n">fs</span> <span class="o">*</span> <span class="n">beta</span><span class="p">)</span>  <span class="c1"># normalised (0–1)</span>
-    <span class="n">Wn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">Wn</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)</span>  <span class="c1"># avoid numerical issues with very low frequencies</span>
+    <span class="c1"># ------------------------------------------------------------------------</span>
+
+    <span class="c1"># ------------- 2b. sampling-frequency guard -----------------------------</span>
+    <span class="c1"># MATLAB errors out when the sampling frequency is too small for the</span>
+    <span class="c1"># requested cut-off. Its own guard,</span>
+    <span class="c1">#     fs &lt; 2 * (-1 + sqrt(2))^(-(1/2)/N) * fc</span>
+    <span class="c1"># is evaluated with the UN-halved N (it precedes `N = N/2;`), which makes</span>
+    <span class="c1"># it weaker than the filter actually needs: for N=2, fc=6 Hz it passes</span>
+    <span class="c1"># from fs=14.96 Hz on, while Wn stays below 1 only from fs=18.65 Hz on --</span>
+    <span class="c1"># in that gap MATLAB passes its own guard and then butter() itself errors.</span>
+    <span class="c1"># Testing Wn &lt; 1 directly therefore rejects exactly the inputs MATLAB</span>
+    <span class="c1"># rejects, in one check instead of two.</span>
+    <span class="c1"># Wn used to be clipped into (1e-6, 0.999) here, which silently returned a</span>
+    <span class="c1"># finite but WRONG result for an under-sampled input instead of raising.</span>
+    <span class="k">if</span> <span class="n">Wn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"fcl=</span><span class="si">{</span><span class="n">fcl</span><span class="si">}</span><span class="s2"> Hz underflows to a normalised cut-off of </span><span class="si">{</span><span class="n">Wn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> at "</span>
+            <span class="sa">f</span><span class="s2">"fs=</span><span class="si">{</span><span class="n">fs</span><span class="si">}</span><span class="s2"> Hz; the filter is not representable."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">Wn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Your sampling frequency is too small for the specified lower "</span>
+            <span class="sa">f</span><span class="s2">"cut-off frequency: fs=</span><span class="si">{</span><span class="n">fs</span><span class="si">}</span><span class="s2"> Hz, fcl=</span><span class="si">{</span><span class="n">fcl</span><span class="si">}</span><span class="s2"> Hz and N=</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> give a "</span>
+            <span class="sa">f</span><span class="s2">"normalised cut-off of </span><span class="si">{</span><span class="n">Wn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2"> &gt;= 1. Need fs &gt; "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="mf">2.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">fcl</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">beta</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2"> Hz."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">Wn</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Your sampling frequency is too small for the specified higher "</span>
+            <span class="sa">f</span><span class="s2">"cut-off frequency: fs=</span><span class="si">{</span><span class="n">fs</span><span class="si">}</span><span class="s2"> Hz, fch=</span><span class="si">{</span><span class="n">fch</span><span class="si">}</span><span class="s2"> Hz and N=</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> give a "</span>
+            <span class="sa">f</span><span class="s2">"normalised cut-off of </span><span class="si">{</span><span class="n">Wn</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2"> &gt;= 1. Need fs &gt; "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="mf">2.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">fch</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">beta</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2"> Hz."</span>
+        <span class="p">)</span>
     <span class="c1"># ------------------------------------------------------------------------</span>
 
     <span class="c1"># ------------- 3. design filter &amp; apply zero-phase ----------------------</span>
@@ -367,6 +561,708 @@ fs : float
     <span class="n">padlen</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">fdata</span> <span class="o">=</span> <span class="n">filtfilt</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">padtype</span><span class="o">=</span><span class="s1">'odd'</span><span class="p">,</span> <span class="n">padlen</span><span class="o">=</span><span class="n">padlen</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">fdata</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.bandpass.bandpass_filter_exact_corners" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">bandpass_filter_exact_corners</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>BANDPASS_FILTER_EXACT_CORNERS band-passes each channel with -3 dB points
+landing exactly on fcl and fch</p>
+<p>emg = bandpass_filter_exact_corners(emg, 2, 15.0, 450.0, 2048.0)</p>
+<p>INPUT
+    data ... signal over time, numeric vector; or a matrix whose rows are
+              the channels and whose columns are the samples over time,
+              then each row is filtered on its own [xV]
+    N    ... filter order, number. Must be EVEN and &gt;= 2 []
+    fcl  ... lower cutoff frequency, the realised -3 dB point [Hz]
+    fch  ... higher cutoff frequency, the realised -3 dB point [Hz]
+    fs   ... sampling frequency [Hz]</p>
+<p>OUTPUT
+    out  ... filtered signal, same shape as data [xV]</p>
+<p>RAISES
+    ValueError ... if N is not an even integer &gt;= 2, or if the cutoffs do
+                    not satisfy 0 &lt; fcl &lt; fch &lt; fs/2</p>
+<p>WHY
+    bandpass_filter is an exact replica of Ton van den Bogert's MATLAB
+    original, whose beta pre-warp is derived for a SINGLE corner. A
+    band-pass Butterworth has no such closed form, so dividing BOTH
+    corners by beta &lt; 1 pushes both UP by 1/beta = 1.554: at fs = 2048 Hz
+    and N = 2 a nominal 15-450 Hz band actually lands at 35.3-574.9 Hz,
+    and 30-450 Hz at 68.8-582.3 Hz. This function instead solves
+    numerically for the corners to hand to butter(), same goal, no closed
+    form.</p>
+<p><em>INFO</em> ... NOT a MATLAB match, use bandpass_filter for that. This is an
+              addition of the Python implementation
+  <em>INFO</em> ... the solved upper corner sits ABOVE fch for a two-pass
+              filter, so it can still run into the Nyquist clip even when
+              the requested fch does not. Keep fch well below fs/2</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/bandpass.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">bandpass_filter_exact_corners</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">,</span> <span class="n">fs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    BANDPASS_FILTER_EXACT_CORNERS band-passes each channel with -3 dB points</span>
+<span class="sd">    landing exactly on fcl and fch</span>
+
+<span class="sd">      emg = bandpass_filter_exact_corners(emg, 2, 15.0, 450.0, 2048.0)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        data ... signal over time, numeric vector; or a matrix whose rows are</span>
+<span class="sd">                  the channels and whose columns are the samples over time,</span>
+<span class="sd">                  then each row is filtered on its own [xV]</span>
+<span class="sd">        N    ... filter order, number. Must be EVEN and &gt;= 2 []</span>
+<span class="sd">        fcl  ... lower cutoff frequency, the realised -3 dB point [Hz]</span>
+<span class="sd">        fch  ... higher cutoff frequency, the realised -3 dB point [Hz]</span>
+<span class="sd">        fs   ... sampling frequency [Hz]</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        out  ... filtered signal, same shape as data [xV]</span>
+
+<span class="sd">      RAISES</span>
+<span class="sd">        ValueError ... if N is not an even integer &gt;= 2, or if the cutoffs do</span>
+<span class="sd">                        not satisfy 0 &lt; fcl &lt; fch &lt; fs/2</span>
+
+<span class="sd">      WHY</span>
+<span class="sd">        bandpass_filter is an exact replica of Ton van den Bogert's MATLAB</span>
+<span class="sd">        original, whose beta pre-warp is derived for a SINGLE corner. A</span>
+<span class="sd">        band-pass Butterworth has no such closed form, so dividing BOTH</span>
+<span class="sd">        corners by beta &lt; 1 pushes both UP by 1/beta = 1.554: at fs = 2048 Hz</span>
+<span class="sd">        and N = 2 a nominal 15-450 Hz band actually lands at 35.3-574.9 Hz,</span>
+<span class="sd">        and 30-450 Hz at 68.8-582.3 Hz. This function instead solves</span>
+<span class="sd">        numerically for the corners to hand to butter(), same goal, no closed</span>
+<span class="sd">        form.</span>
+
+<span class="sd">      *INFO* ... NOT a MATLAB match, use bandpass_filter for that. This is an</span>
+<span class="sd">                  addition of the Python implementation</span>
+<span class="sd">      *INFO* ... the solved upper corner sits ABOVE fch for a two-pass</span>
+<span class="sd">                  filter, so it can still run into the Nyquist clip even when</span>
+<span class="sd">                  the requested fch does not. Keep fch well below fs/2</span>
+<span class="sd">    """</span>
+    <span class="c1"># Check the arguments</span>
+    <span class="k">if</span> <span class="n">N</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">N</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"N must be an even integer &gt;= 2 (bi-directional filtering)."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fcl</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fch</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fcl</span> <span class="o">&gt;=</span> <span class="n">fch</span> <span class="ow">or</span> <span class="n">fch</span> <span class="o">&gt;=</span> <span class="n">fs</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cut-off frequencies must satisfy 0 &lt; fcl &lt; fch &lt; fs/2."</span><span class="p">)</span>
+
+    <span class="n">halfN</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="c1"># Solve for the butter() corners whose TWO-PASS response is -3 dB at fcl/fch</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">residual</span><span class="p">(</span><span class="n">corners</span><span class="p">):</span>
+        <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">corners</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="n">fs</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="mf">1e-3</span><span class="p">)</span>
+        <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">corners</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">lo</span> <span class="o">+</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="n">fs</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="mf">1e-3</span><span class="p">)</span>
+        <span class="n">Wn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">((</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">]))</span> <span class="o">/</span> <span class="n">fs</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="n">halfN</span><span class="p">,</span> <span class="n">Wn</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s1">'bandpass'</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">freqz</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">worN</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">])</span> <span class="o">/</span> <span class="n">fs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">target</span>
+
+    <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">fsolve</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="n">fcl</span><span class="p">,</span> <span class="n">fch</span><span class="p">],</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span>
+    <span class="n">Wn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">((</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">]))</span> <span class="o">/</span> <span class="n">fs</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)</span>
+
+    <span class="c1"># Design and apply zero-phase, MATLAB's padding</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="n">halfN</span><span class="p">,</span> <span class="n">Wn</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s1">'bandpass'</span><span class="p">)</span>
+    <span class="n">padlen</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">filtfilt</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">padtype</span><span class="o">=</span><span class="s1">'odd'</span><span class="p">,</span> <span class="n">padlen</span><span class="o">=</span><span class="n">padlen</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.filters.lowpass"></a>
+    <div class="doc doc-contents first">
+
+      <p>LOWPASS: zero-phase Butterworth lowpass, MATLAB-compatible</p>
+<p>Companion of filters.bandpass.bandpass_filter, same pre-warp, same
+  bi-directional application. A SINGLE corner is the case Ton van den
+  Bogert's pre-warp is exact for, so the realised -3 dB point lands on fc
+  and there is no exact-corner variant to add here (verified: 15.000 Hz
+  realised for N = 2 and N = 4).</p>
+<p>PORT of SP_AM_CV_HDsEMG_Analysis.m, local function lowpassfilter
+  (line 1567), (c) H Penasso 20.02.2019.
+  CREDIT Ton van den Bogert,
+  https://biomch-l.isbweb.org/archive/index.php/t-26625.html</p>
+<p>Ported to Python for hdsemg-shared by Claude Opus 5, 2026-08-19.</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.lowpass.lowpass_filter" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">lowpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">fc</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>LOWPASS_FILTER applies a zero-phase Butterworth lowpass to each channel</p>
+<p>env = lowpass_filter(rectified, 2, 15.0, 2048.0)</p>
+<p>INPUT
+    data ... signal over time, numeric vector; or a matrix whose rows are
+              the channels and whose columns are the samples over time,
+              then each row is filtered on its own [xV]
+    N    ... filter order, number. Must be EVEN and &gt;= 2: it is halved
+              internally and doubled again by the bi-directional
+              (forwards and backwards) filtering []
+    fc   ... cutoff frequency, the realised -3 dB point of the whole
+              two-pass filter [Hz]
+    fs   ... sampling frequency [Hz]</p>
+<p>OUTPUT
+    out  ... filtered signal, same shape as data [xV]</p>
+<p>RAISES
+    ValueError ... if N is not an even integer &gt;= 2, if fs or fc are not
+                    positive, or if fs is too small for fc</p>
+<p><em>INFO</em> ... MATLAB's own guard uses the UN-halved order and is therefore
+              weaker than the filter needs; butter() then errors instead.
+              Testing the normalised cutoff against 1 rejects exactly the
+              same inputs in one check
+  <em>INFO</em> ... padding follows MATLAB (padtype 'odd', padlen
+              3*(max(len(a),len(b))-1)), NOT scipy's defaults. For the
+              edge bias that still leaves, see filters.padding</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/lowpass.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">lowpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">fc</span><span class="p">,</span> <span class="n">fs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    LOWPASS_FILTER applies a zero-phase Butterworth lowpass to each channel</span>
+
+<span class="sd">      env = lowpass_filter(rectified, 2, 15.0, 2048.0)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        data ... signal over time, numeric vector; or a matrix whose rows are</span>
+<span class="sd">                  the channels and whose columns are the samples over time,</span>
+<span class="sd">                  then each row is filtered on its own [xV]</span>
+<span class="sd">        N    ... filter order, number. Must be EVEN and &gt;= 2: it is halved</span>
+<span class="sd">                  internally and doubled again by the bi-directional</span>
+<span class="sd">                  (forwards and backwards) filtering []</span>
+<span class="sd">        fc   ... cutoff frequency, the realised -3 dB point of the whole</span>
+<span class="sd">                  two-pass filter [Hz]</span>
+<span class="sd">        fs   ... sampling frequency [Hz]</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        out  ... filtered signal, same shape as data [xV]</span>
+
+<span class="sd">      RAISES</span>
+<span class="sd">        ValueError ... if N is not an even integer &gt;= 2, if fs or fc are not</span>
+<span class="sd">                        positive, or if fs is too small for fc</span>
+
+<span class="sd">      *INFO* ... MATLAB's own guard uses the UN-halved order and is therefore</span>
+<span class="sd">                  weaker than the filter needs; butter() then errors instead.</span>
+<span class="sd">                  Testing the normalised cutoff against 1 rejects exactly the</span>
+<span class="sd">                  same inputs in one check</span>
+<span class="sd">      *INFO* ... padding follows MATLAB (padtype 'odd', padlen</span>
+<span class="sd">                  3*(max(len(a),len(b))-1)), NOT scipy's defaults. For the</span>
+<span class="sd">                  edge bias that still leaves, see filters.padding</span>
+<span class="sd">    """</span>
+    <span class="c1"># Check the arguments</span>
+    <span class="k">if</span> <span class="n">N</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">N</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"N must be an even integer &gt;= 2 (bi-directional filtering)."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fc</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"fs and fc must be positive."</span><span class="p">)</span>
+
+    <span class="c1"># Pre-warp with the HALVED order, N is doubled again by filtfilt</span>
+    <span class="n">half_n</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">beta</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">half_n</span><span class="p">))</span>
+    <span class="n">Wn</span> <span class="o">=</span> <span class="nb">float</span><span class="p">((</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">fc</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">fs</span> <span class="o">*</span> <span class="n">beta</span><span class="p">))</span>
+
+    <span class="c1"># Guard the sampling frequency instead of clipping to a wrong-but-finite result</span>
+    <span class="k">if</span> <span class="n">Wn</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"fc=</span><span class="si">{</span><span class="n">fc</span><span class="si">}</span><span class="s2"> Hz underflows to a normalised cut-off of </span><span class="si">{</span><span class="n">Wn</span><span class="si">}</span><span class="s2"> at "</span>
+            <span class="sa">f</span><span class="s2">"fs=</span><span class="si">{</span><span class="n">fs</span><span class="si">}</span><span class="s2"> Hz; the filter is not representable."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">Wn</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Your sampling frequency is too small for the specified cut-off "</span>
+            <span class="sa">f</span><span class="s2">"frequency: fs=</span><span class="si">{</span><span class="n">fs</span><span class="si">}</span><span class="s2"> Hz, fc=</span><span class="si">{</span><span class="n">fc</span><span class="si">}</span><span class="s2"> Hz and N=</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> give a normalised "</span>
+            <span class="sa">f</span><span class="s2">"cut-off of </span><span class="si">{</span><span class="n">Wn</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2"> &gt;= 1. Need fs &gt; </span><span class="si">{</span><span class="mf">2.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">fc</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">beta</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2"> Hz."</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Design and apply zero-phase</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">butter</span><span class="p">(</span><span class="n">half_n</span><span class="p">,</span> <span class="n">Wn</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s1">'low'</span><span class="p">)</span>
+    <span class="n">padlen</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">filtfilt</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">padtype</span><span class="o">=</span><span class="s1">'odd'</span><span class="p">,</span> <span class="n">padlen</span><span class="o">=</span><span class="n">padlen</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.filters.smoothing"></a>
+    <div class="doc doc-contents first">
+
+      <p>SMOOTHING: zero-phase moving average, as an alternative to a lowpass</p>
+<p>A boxcar run forwards and backwards is the second way to smooth an
+  envelope. Given the same fc it attenuates a sine at fc exactly as
+  filters.lowpass.lowpass_filter does, so the two differ only in kernel
+  shape and the choice never changes the bandwidth.</p>
+<p>TWO KERNELS
+    "bidirectional" ... two boxcar passes, i.e. a triangular kernel. The
+                         default, the smoother of the two
+    "rectangular"   ... one plain boxcar. With a window as long as the
+                         signal every sample returns the plain unweighted
+                         mean over the whole signal, which "bidirectional"
+                         does NOT - it weighs the middle of its window more
+                         heavily. Use "rectangular" wherever exact agreement
+                         with an epoch mean is the point</p>
+<p>ADDITION of the Python implementation, no MATLAB equivalent.</p>
+<p>(c) H Penasso. Written for hdsemg-shared by Claude Opus 5, 2026-08-19,
+  from the MATLAB conventions of Global-HDsEMG-Analysis.</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.smoothing.moving_average" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">moving_average</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">window_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="s1">'bidirectional'</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>MOVING_AVERAGE smooths each channel with a zero-phase moving window</p>
+<p>y = moving_average(squared, fs, fc = 15.0)
+  y = moving_average(squared, fs, window_s = 3.0, kernel = 'rectangular')</p>
+<p>INPUT
+    data     ... signal over time, numeric vector; or a matrix whose rows
+                  are the channels and whose columns are the samples over
+                  time, then each row is smoothed on its own [xV]
+    fs       ... sampling frequency [Hz]
+    window_s ... equivalent rectangular width of the window, give this OR
+                  fc, not both [s]
+    fc       ... wanted -3 dB cutoff, give this OR window_s [Hz]
+    kernel   ... char, 'bidirectional' (default) or 'rectangular', see
+                  the module docstring, TWO KERNELS []</p>
+<p>OUTPUT
+    y        ... smoothed signal, same shape as data. Exactly zero-phase,
+                  a symmetric input comes back symmetric [xV]</p>
+<p>RAISES
+    ValueError ... if neither or both of window_s and fc are given, if
+                    either is not positive, or if kernel is unknown</p>
+<p><em>INFO</em> ... the ends are divided by the kernel weight that actually
+              overlapped them, so no taper towards zero is introduced</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/smoothing.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">moving_average</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">window_s</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">fc</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">kernel</span> <span class="o">=</span> <span class="s1">'bidirectional'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    MOVING_AVERAGE smooths each channel with a zero-phase moving window</span>
+
+<span class="sd">      y = moving_average(squared, fs, fc = 15.0)</span>
+<span class="sd">      y = moving_average(squared, fs, window_s = 3.0, kernel = 'rectangular')</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        data     ... signal over time, numeric vector; or a matrix whose rows</span>
+<span class="sd">                      are the channels and whose columns are the samples over</span>
+<span class="sd">                      time, then each row is smoothed on its own [xV]</span>
+<span class="sd">        fs       ... sampling frequency [Hz]</span>
+<span class="sd">        window_s ... equivalent rectangular width of the window, give this OR</span>
+<span class="sd">                      fc, not both [s]</span>
+<span class="sd">        fc       ... wanted -3 dB cutoff, give this OR window_s [Hz]</span>
+<span class="sd">        kernel   ... char, 'bidirectional' (default) or 'rectangular', see</span>
+<span class="sd">                      the module docstring, TWO KERNELS []</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        y        ... smoothed signal, same shape as data. Exactly zero-phase,</span>
+<span class="sd">                      a symmetric input comes back symmetric [xV]</span>
+
+<span class="sd">      RAISES</span>
+<span class="sd">        ValueError ... if neither or both of window_s and fc are given, if</span>
+<span class="sd">                        either is not positive, or if kernel is unknown</span>
+
+<span class="sd">      *INFO* ... the ends are divided by the kernel weight that actually</span>
+<span class="sd">                  overlapped them, so no taper towards zero is introduced</span>
+<span class="sd">    """</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">_kernel</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="n">_resolve_window</span><span class="p">(</span><span class="n">fs</span><span class="p">,</span> <span class="n">window_s</span><span class="p">,</span> <span class="n">fc</span><span class="p">,</span> <span class="n">kernel</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Convolve the signal and a matching all-ones signal with the same kernel,</span>
+    <span class="c1"># then divide: at the ends only part of the kernel overlaps and the</span>
+    <span class="c1"># denominator carries exactly that part</span>
+    <span class="n">num</span> <span class="o">=</span> <span class="n">convolve1d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'constant'</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">den</span> <span class="o">=</span> <span class="n">convolve1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">h</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'constant'</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.smoothing.window_length_for_cutoff" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">window_length_for_cutoff</span><span class="p">(</span><span class="n">fc</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="s1">'bidirectional'</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>WINDOW_LENGTH_FOR_CUTOFF returns the boxcar length whose response is
+-3 dB at fc</p>
+<p>w = window_length_for_cutoff(15.0, 2048.0)</p>
+<p>INPUT
+    fc     ... wanted -3 dB cutoff frequency [Hz]
+    fs     ... sampling frequency [Hz]
+    kernel ... char, 'bidirectional' (default) or 'rectangular' []</p>
+<p>OUTPUT
+    w      ... length of ONE boxcar pass, samples []</p>
+<p>RAISES
+    ValueError ... if fc is not below the Nyquist frequency, or if no
+                    window is long enough to reach fc</p>
+<p><em>INFO</em> ... -3 dB means the response of the WHOLE smoother, both passes
+              included, has fallen to 1/sqrt(2). Give this function and
+              lowpass_filter the same fc and both attenuate a sine at fc
+              equally
+  <em>INFO</em> ... rule of thumb w ~ 0.319 * fs / fc, so at fs = 2048 Hz and
+              fc = 15 Hz that is 44 samples, a 31.9 ms equivalent window</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/smoothing.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">window_length_for_cutoff</span><span class="p">(</span><span class="n">fc</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">kernel</span> <span class="o">=</span> <span class="s1">'bidirectional'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    WINDOW_LENGTH_FOR_CUTOFF returns the boxcar length whose response is</span>
+<span class="sd">    -3 dB at fc</span>
+
+<span class="sd">      w = window_length_for_cutoff(15.0, 2048.0)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        fc     ... wanted -3 dB cutoff frequency [Hz]</span>
+<span class="sd">        fs     ... sampling frequency [Hz]</span>
+<span class="sd">        kernel ... char, 'bidirectional' (default) or 'rectangular' []</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        w      ... length of ONE boxcar pass, samples []</span>
+
+<span class="sd">      RAISES</span>
+<span class="sd">        ValueError ... if fc is not below the Nyquist frequency, or if no</span>
+<span class="sd">                        window is long enough to reach fc</span>
+
+<span class="sd">      *INFO* ... -3 dB means the response of the WHOLE smoother, both passes</span>
+<span class="sd">                  included, has fallen to 1/sqrt(2). Give this function and</span>
+<span class="sd">                  lowpass_filter the same fc and both attenuate a sine at fc</span>
+<span class="sd">                  equally</span>
+<span class="sd">      *INFO* ... rule of thumb w ~ 0.319 * fs / fc, so at fs = 2048 Hz and</span>
+<span class="sd">                  fc = 15 Hz that is 44 samples, a 31.9 ms equivalent window</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fc</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"fs and fc must be positive."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fc</span> <span class="o">&gt;=</span> <span class="n">fs</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"fc=</span><span class="si">{</span><span class="n">fc</span><span class="si">}</span><span class="s2"> Hz must be below the Nyquist frequency fs/2=</span><span class="si">{</span><span class="n">fs</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">2</span><span class="si">}</span><span class="s2"> Hz."</span><span class="p">)</span>
+
+    <span class="n">passes</span> <span class="o">=</span> <span class="n">_passes</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span>
+
+    <span class="c1"># The response falls monotonically in w until the kernel's first null,</span>
+    <span class="c1"># which sits at w = fs/fc; bracket below it to stay on that branch</span>
+    <span class="n">w_hi</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">fs</span> <span class="o">/</span> <span class="n">fc</span><span class="p">,</span> <span class="mf">1e6</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_response</span><span class="p">(</span><span class="n">fc</span><span class="p">,</span> <span class="n">w_hi</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">passes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">target</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No boxcar window reaches -3 dB at fc=</span><span class="si">{</span><span class="n">fc</span><span class="si">}</span><span class="s2"> Hz for fs=</span><span class="si">{</span><span class="n">fs</span><span class="si">}</span><span class="s2"> Hz."</span><span class="p">)</span>
+
+    <span class="n">w</span> <span class="o">=</span> <span class="n">brentq</span><span class="p">(</span><span class="k">lambda</span> <span class="n">ww</span><span class="p">:</span> <span class="n">_response</span><span class="p">(</span><span class="n">fc</span><span class="p">,</span> <span class="n">ww</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">passes</span><span class="p">)</span> <span class="o">-</span> <span class="n">target</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">,</span> <span class="n">w_hi</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">w</span><span class="p">)))</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.filters.padding"></a>
+    <div class="doc doc-contents first">
+
+      <p>PADDING: edge guards for zero-phase filtering</p>
+<p>Filtering a finite signal disturbs both of its ends. scipy's filtfilt pads
+  by only 3 samples by default, far less than an EMG band-pass settles in,
+  so each channel is padded with a time-flipped copy of its own leading and
+  trailing samples, filtered, and the pad trimmed off again.</p>
+<p>Measured over 300 white-noise realisations, bias of the leading 64 samples
+  against the middle of the signal:</p>
+<pre><code>no pad                     band-pass  +8.54 %   lowpass  -0.66 %
+odd reflection  (filtfilt) band-pass  +9.16 %   lowpass  -0.84 %
+even reflection (here)     band-pass  -0.28 %   lowpass  -0.01 %
+</code></pre>
+<p>Even reflection is what works. Odd reflection - what filtfilt does by
+  default - does not fix the band-pass at all, so this is not a redundant
+  second pad.</p>
+<p>ADDITION of the Python implementation, no MATLAB equivalent.</p>
+<p>(c) H Penasso. Written for hdsemg-shared by Claude Opus 5, 2026-08-19,
+  from the MATLAB conventions of Global-HDsEMG-Analysis.</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.padding.pad_samples" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">pad_samples</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">pad_s</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>PAD_SAMPLES converts a padding duration into the sample count both
+reflect_pad and trim_pad will use</p>
+<p>pad = pad_samples(emg.shape[-1], fs, 0.25)</p>
+<p>INPUT
+    n_samples ... length of the signal along time []
+    fs        ... sampling frequency [Hz]
+    pad_s     ... wanted padding duration at each end, 0 disables
+                   padding [s]</p>
+<p>OUTPUT
+    pad       ... number of samples, clipped to what the signal can
+                   supply, so reflect_pad and trim_pad stay consistent []</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/padding.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">pad_samples</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">pad_s</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    PAD_SAMPLES converts a padding duration into the sample count both</span>
+<span class="sd">    reflect_pad and trim_pad will use</span>
+
+<span class="sd">      pad = pad_samples(emg.shape[-1], fs, 0.25)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        n_samples ... length of the signal along time []</span>
+<span class="sd">        fs        ... sampling frequency [Hz]</span>
+<span class="sd">        pad_s     ... wanted padding duration at each end, 0 disables</span>
+<span class="sd">                       padding [s]</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        pad       ... number of samples, clipped to what the signal can</span>
+<span class="sd">                       supply, so reflect_pad and trim_pad stay consistent []</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">pad_s</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">pad_s</span> <span class="o">*</span> <span class="n">fs</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">n_samples</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.padding.reflect_pad" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">reflect_pad</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pad</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>REFLECT_PAD extends a signal at both ends with an even reflection of itself</p>
+<p>padded = reflect_pad(emg, 512)</p>
+<p>INPUT
+    data   ... signal over time, numeric vector; or a matrix whose rows
+                are the channels and whose columns are the samples over
+                time, then each row is padded on its own [xV]
+    pad    ... number of samples to add at EACH end. Clipped to what the
+                signal can supply, ignored if &lt;= 0 []</p>
+<p>OUTPUT
+    padded ... data with <code>pad</code> samples prepended and appended, same
+                number of rows [xV]</p>
+<p><em>INFO</em> ... trim the same number of samples off both ends after
+              filtering, see trim_pad
+  <em>INFO</em> ... the reflection is EVEN (a mirror), not odd (a point
+              reflection). Odd is what filtfilt does and it does not fix
+              the band-pass edge bias</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/padding.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">reflect_pad</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pad</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    REFLECT_PAD extends a signal at both ends with an even reflection of itself</span>
+
+<span class="sd">      padded = reflect_pad(emg, 512)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        data   ... signal over time, numeric vector; or a matrix whose rows</span>
+<span class="sd">                    are the channels and whose columns are the samples over</span>
+<span class="sd">                    time, then each row is padded on its own [xV]</span>
+<span class="sd">        pad    ... number of samples to add at EACH end. Clipped to what the</span>
+<span class="sd">                    signal can supply, ignored if &lt;= 0 []</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        padded ... data with `pad` samples prepended and appended, same</span>
+<span class="sd">                    number of rows [xV]</span>
+
+<span class="sd">      *INFO* ... trim the same number of samples off both ends after</span>
+<span class="sd">                  filtering, see trim_pad</span>
+<span class="sd">      *INFO* ... the reflection is EVEN (a mirror), not odd (a point</span>
+<span class="sd">                  reflection). Odd is what filtfilt does and it does not fix</span>
+<span class="sd">                  the band-pass edge bias</span>
+<span class="sd">    """</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pad</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="c1"># Cannot reflect more signal than there is</span>
+    <span class="n">pad</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">pad</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pad</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">pad</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">:</span><span class="o">-</span><span class="n">pad</span> <span class="o">-</span> <span class="mi">2</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.filters.padding.trim_pad" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">trim_pad</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pad</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>TRIM_PAD removes the samples reflect_pad added at both ends</p>
+<p>emg = trim_pad(filtered_padded, 512)</p>
+<p>INPUT
+    data ... padded signal over time, vector or channels-by-samples
+              matrix [xV]
+    pad  ... number of samples reflect_pad added at EACH end. Must be the
+              value reflect_pad actually used, see pad_samples []</p>
+<p>OUTPUT
+    out  ... data with <code>pad</code> samples removed from both ends [xV]</p>
+<p><em>INFO</em> ... reflect_pad clips <code>pad</code> to the signal length, so ask
+              pad_samples for the number both functions agree on</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/filters/padding.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">trim_pad</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pad</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    TRIM_PAD removes the samples reflect_pad added at both ends</span>
+
+<span class="sd">      emg = trim_pad(filtered_padded, 512)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        data ... padded signal over time, vector or channels-by-samples</span>
+<span class="sd">                  matrix [xV]</span>
+<span class="sd">        pad  ... number of samples reflect_pad added at EACH end. Must be the</span>
+<span class="sd">                  value reflect_pad actually used, see pad_samples []</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        out  ... data with `pad` samples removed from both ends [xV]</span>
+
+<span class="sd">      *INFO* ... reflect_pad clips `pad` to the signal length, so ask</span>
+<span class="sd">                  pad_samples for the number both functions agree on</span>
+<span class="sd">    """</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pad</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">pad</span><span class="p">):</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">pad</span><span class="p">)]</span>
 </code></pre></div>
         </details>
     </div>

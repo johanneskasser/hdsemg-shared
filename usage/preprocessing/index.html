@@ -74,6 +74,10 @@
 <li>
     <a href="../motor_unit/" class="dropdown-item">motor_unit</a>
 </li>
+                                    
+<li>
+    <a href="../quality/" class="dropdown-item">quality</a>
+</li>
                                 </ul>
                             </li>
                             <li class="nav-item">
@@ -113,6 +117,10 @@
             <li class="nav-item" data-bs-level="1"><a href="#preprocessing" class="nav-link">Preprocessing</a>
               <ul class="nav flex-column">
             <li class="nav-item" data-bs-level="2"><a href="#differential-analysis" class="nav-link">Differential Analysis</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#grid-mapping" class="nav-link">Grid Mapping</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -258,9 +266,60 @@ diff_filtered, diff_raw = to_differential(
 <li>Preprocessing for motor unit decomposition</li>
 <li>Improving spatial resolution of EMG recordings</li>
 </ul>
+<h2 id="grid-mapping">Grid Mapping</h2>
+<p><code>hdsemg_shared.preprocessing.grid_map</code> turns a flat channel matrix into HDsEMG
+grid columns. It only selects and orders — no filtering, no differentiation.</p>
+<h3 id="the-emg_map-format">The <code>emg_map</code> format</h3>
+<p>Follows openhdemg's <code>custom_sorting_order</code>: a list of lists (or a 2-D array)
+where the <strong>outer</strong> index is the grid <strong>column</strong> and the <strong>inner</strong> index is the
+<strong>row</strong>, holding base-0 channel numbers, with <code>np.nan</code> at positions that carry
+no electrode or were excluded.</p>
+<pre><code class="language-python">emg_map = [[0, 1,  2,  3     ],   # col0
+           [4, 5,  6,  7     ],   # col1
+           [8, 9, 10, np.nan]]    # col2, one gap
+</code></pre>
+<h3 id="api-reference_1">API Reference</h3>
+<pre><code class="language-python">map_to_columns(emg_channels, emg_map)
+</code></pre>
+<ul>
+<li><code>emg_channels</code> — rows are channels, columns are samples. May hold more
+  channels than the map refers to (force and path references, for example).
+  <code>EMGFile.data</code> is samples-by-channels, so pass its transpose.</li>
+<li>returns a list of <code>nCols</code> matrices, each <code>nRows x nSamples</code>, in map order.
+  A <code>NaN</code> map entry becomes an all-<code>NaN</code> row.</li>
+</ul>
+<p>Raises <code>ValueError</code> on a ragged map, an entry that is not a valid channel
+number, or a channel used more than once.</p>
+<pre><code class="language-python">emg_map_from_indices(emg_indices, rows, cols, order='column')
+</code></pre>
+<p>Builds a map from a <code>Grid</code>'s flat <code>emg_indices</code> plus <code>rows</code>/<code>cols</code>.
+<code>order='column'</code> (default) means the channels run <strong>down</strong> the first column
+before moving to the next — this matches MATLAB's <code>mat2grid</code>. <code>order='row'</code>
+transposes that.</p>
+<p>Grids with an unwired position — HD08MM1305 has 64 electrodes in 5x13 = 65
+positions — cannot be described this way and raise. Pass an explicit map with
+<code>NaN</code> at the empty position instead; openhdemg's <code>sort_rawemg</code> and
+hdsemg-select's electrode display grid both produce one.</p>
+<h3 id="example-usage_1">Example Usage</h3>
+<pre><code class="language-python">import numpy as np
+from hdsemg_shared.fileio.file_io import EMGFile
+from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices, map_to_columns
+from hdsemg_shared.preprocessing.differential import to_differential
+
+emg_file = EMGFile.load(&quot;recording.otb+&quot;)
+grid = emg_file.grids[0]
+
+emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
+columns = map_to_columns(emg_file.data.T, emg_map)
+
+dmat, dmat_no_filter = to_differential(columns, emg_file.sampling_frequency,
+                                       {&quot;n&quot;: 2, &quot;low&quot;: 20.0, &quot;up&quot;: 450.0})
+</code></pre>
+<p><code>hdsemg_shared.global_parameters.global_amplitude</code> takes the <code>emg_map</code> directly
+and does the mapping and the MP/SD/DD differentiation itself.</p>
 <h2 id="source-code">Source Code</h2>
 <blockquote>
-<p>The implementation can be found in <code>src/hdsemg_shared/preprocessing/differential.py</code>. The code includes type hints and detailed docstrings for easy integration with development tools.</p>
+<p>The implementations can be found in <code>src/hdsemg_shared/preprocessing/</code> — <code>differential.py</code> and <code>grid_map.py</code>. The code includes type hints and detailed docstrings for easy integration with development tools.</p>
 </blockquote>
 <hr />
 <h3 id="api-documentation">API Documentation</h3>
@@ -268,35 +327,8 @@ diff_filtered, diff_raw = to_differential(
 
   <div class="doc doc-object doc-module">
 
-<a id="hdsemg_shared.preprocessing"></a>
+<a id="hdsemg_shared.preprocessing.differential"></a>
     <div class="doc doc-contents first">
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-object doc-module">
-
-
-
-<h3 id="hdsemg_shared.preprocessing.differential" class="doc doc-heading">
-        <code>differential</code>
-
-
-
-</h3>
-
-    <div class="doc doc-contents ">
 
 
 
@@ -314,16 +346,16 @@ diff_filtered, diff_raw = to_differential(
 
 
 
-<h4 id="hdsemg_shared.preprocessing.differential.to_differential" class="doc doc-heading">
+<h3 id="hdsemg_shared.preprocessing.differential.to_differential" class="doc doc-heading">
 <code class="highlight language-python"><span class="n">to_differential</span><span class="p">(</span><span class="n">mats</span><span class="p">,</span> <span class="n">sr</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></code>
 
 
-</h4>
+</h3>
 
     <div class="doc doc-contents ">
 
       <p>Exact Python replica of MATLAB <code>toDifferential</code>.</p>
-<h6 id="hdsemg_shared.preprocessing.differential.to_differential--parameters">Parameters</h6>
+<h5 id="hdsemg_shared.preprocessing.differential.to_differential--parameters">Parameters</h5>
 <p>mats : list of ndarray
     <code>k</code> matrices, each shape (j, T) where j = number of monopolar
     EMG channels and T = samples.
@@ -334,7 +366,7 @@ f : dict
         'n'   : even Butterworth order (MATLAB style)
         'low' : lower cut-off frequency [Hz]
         'up'  : upper cut-off frequency [Hz]</p>
-<h6 id="hdsemg_shared.preprocessing.differential.to_differential--returns">Returns</h6>
+<h5 id="hdsemg_shared.preprocessing.differential.to_differential--returns">Returns</h5>
 <p>dmat        : list of ndarray
     Filtered single-differential signals, each (j-1, T).
 dmatNoF     : list of ndarray
@@ -425,6 +457,222 @@ dmatNoF     : list of ndarray
     </div>
 
   </div>
+
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.preprocessing.grid_map"></a>
+    <div class="doc doc-contents first">
+
+      <p>GRID_MAP: turning a channel matrix into HDsEMG grid columns</p>
+<p>An emg_map says which channel of a recording sits at which electrode
+  position. The format follows openhdemg's custom_sorting_order: a list of
+  lists (or a 2-D array) where the OUTER index is the grid COLUMN and the
+  INNER index is the ROW, holding base-0 channel numbers, with NaN at
+  positions that carry no electrode or were excluded.</p>
+<pre><code>emg_map = [[0, 1,  2,  3     ],   # col0
+           [4, 5,  6,  7     ],   # col1
+           [8, 9, 10, np.nan]]    # col2, one gap
+</code></pre>
+<p>Nothing here filters or differentiates - it only selects and orders.</p>
+<p>ADDITION of the Python implementation, no MATLAB equivalent (MATLAB's
+  mat2grid takes gridSize from the caller's input structure).</p>
+<p>(c) H Penasso. Written for hdsemg-shared by Claude Opus 5, 2026-08-19,
+  from the MATLAB conventions of Global-HDsEMG-Analysis.</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.preprocessing.grid_map.emg_map_from_indices" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">emg_map_from_indices</span><span class="p">(</span><span class="n">emg_indices</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s1">'column'</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>EMG_MAP_FROM_INDICES builds an emg_map from a flat list of channel numbers</p>
+<p>emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)</p>
+<p>INPUT
+    emg_indices ... sequence of base-0 channel numbers, in acquisition
+                     order, exactly rows*cols of them []
+    rows        ... number of electrode rows of the grid []
+    cols        ... number of electrode columns of the grid []
+    order       ... char, 'column' (default) if the channels run down the
+                     first column before moving to the next, 'row' if
+                     they run along the first row []</p>
+<p>OUTPUT
+    emg_map     ... 2-D array, cols-by-rows, base-0 channel numbers, ready
+                     for map_to_columns []</p>
+<p>RAISES
+    ValueError ... if rows or cols are not positive, if order is unknown,
+                    or if len(emg_indices) != rows*cols</p>
+<p><em>INFO</em> ... grids with an unwired position, e.g. HD08MM1305 with 64
+              electrodes in 5x13 = 65 positions, cannot be described this
+              way. Pass an explicit map with NaN at the empty position
+              instead - openhdemg's sort_rawemg and hdsemg-select's
+              electrode display grid both produce one</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/preprocessing/grid_map.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">emg_map_from_indices</span><span class="p">(</span><span class="n">emg_indices</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">order</span> <span class="o">=</span> <span class="s1">'column'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    EMG_MAP_FROM_INDICES builds an emg_map from a flat list of channel numbers</span>
+
+<span class="sd">      emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        emg_indices ... sequence of base-0 channel numbers, in acquisition</span>
+<span class="sd">                         order, exactly rows*cols of them []</span>
+<span class="sd">        rows        ... number of electrode rows of the grid []</span>
+<span class="sd">        cols        ... number of electrode columns of the grid []</span>
+<span class="sd">        order       ... char, 'column' (default) if the channels run down the</span>
+<span class="sd">                         first column before moving to the next, 'row' if</span>
+<span class="sd">                         they run along the first row []</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        emg_map     ... 2-D array, cols-by-rows, base-0 channel numbers, ready</span>
+<span class="sd">                         for map_to_columns []</span>
+
+<span class="sd">      RAISES</span>
+<span class="sd">        ValueError ... if rows or cols are not positive, if order is unknown,</span>
+<span class="sd">                        or if len(emg_indices) != rows*cols</span>
+
+<span class="sd">      *INFO* ... grids with an unwired position, e.g. HD08MM1305 with 64</span>
+<span class="sd">                  electrodes in 5x13 = 65 positions, cannot be described this</span>
+<span class="sd">                  way. Pass an explicit map with NaN at the empty position</span>
+<span class="sd">                  instead - openhdemg's sort_rawemg and hdsemg-select's</span>
+<span class="sd">                  electrode display grid both produce one</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">rows</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">cols</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"rows and cols must be positive, got </span><span class="si">{</span><span class="n">rows</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">cols</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">order</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'column'</span><span class="p">,</span> <span class="s1">'row'</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"order must be 'column' or 'row', got </span><span class="si">{</span><span class="n">order</span><span class="si">!r}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">emg_indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">rows</span> <span class="o">*</span> <span class="n">cols</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"emg_indices holds </span><span class="si">{</span><span class="n">idx</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> channels but rows*cols is </span><span class="si">{</span><span class="n">rows</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">cols</span><span class="si">}</span><span class="s2">. "</span>
+            <span class="s2">"A grid with an unwired position needs an explicit map with NaN there."</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="s1">'column'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">idx</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cols</span><span class="p">,</span> <span class="n">rows</span><span class="p">)</span>
+
+    <span class="c1"># Acquisition ran along the rows, so reshape row-wise and transpose</span>
+    <span class="k">return</span> <span class="n">idx</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.preprocessing.grid_map.map_to_columns" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">map_to_columns</span><span class="p">(</span><span class="n">emg_channels</span><span class="p">,</span> <span class="n">emg_map</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>MAP_TO_COLUMNS splits a channel matrix into one matrix per grid column</p>
+<p>columns = map_to_columns(emg.T, emg_map)</p>
+<p>INPUT
+    emg_channels ... matrix, each row contains one channel's signal over
+                      time (rows = channels, columns = samples). May hold
+                      more channels than the map refers to, e.g. force or
+                      path references [xV]
+    emg_map      ... list of lists or 2-D array, outer index = grid
+                      column, inner index = row, entries are base-0
+                      channel numbers into emg_channels, NaN where no
+                      electrode sits []</p>
+<p>OUTPUT
+    columns      ... list of nCols matrices, each nRows-by-nSamples, in
+                      map order. A NaN map entry becomes an all-NaN row
+                      [xV]</p>
+<p>RAISES
+    ValueError ... if the map is ragged or not 2-D, if an entry is not a
+                    valid row index of emg_channels, or if a channel is
+                    used more than once</p>
+<p><em>INFO</em> ... EMGFile.data is samples-by-channels, so pass its transpose
+  <em>INFO</em> ... excluding a channel means putting NaN in its map position;
+              global_amplitude then drops it, matching the MATLAB
+              '<em>INFO</em> NaN channels are ignored'</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/preprocessing/grid_map.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">map_to_columns</span><span class="p">(</span><span class="n">emg_channels</span><span class="p">,</span> <span class="n">emg_map</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    MAP_TO_COLUMNS splits a channel matrix into one matrix per grid column</span>
+
+<span class="sd">      columns = map_to_columns(emg.T, emg_map)</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        emg_channels ... matrix, each row contains one channel's signal over</span>
+<span class="sd">                          time (rows = channels, columns = samples). May hold</span>
+<span class="sd">                          more channels than the map refers to, e.g. force or</span>
+<span class="sd">                          path references [xV]</span>
+<span class="sd">        emg_map      ... list of lists or 2-D array, outer index = grid</span>
+<span class="sd">                          column, inner index = row, entries are base-0</span>
+<span class="sd">                          channel numbers into emg_channels, NaN where no</span>
+<span class="sd">                          electrode sits []</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        columns      ... list of nCols matrices, each nRows-by-nSamples, in</span>
+<span class="sd">                          map order. A NaN map entry becomes an all-NaN row</span>
+<span class="sd">                          [xV]</span>
+
+<span class="sd">      RAISES</span>
+<span class="sd">        ValueError ... if the map is ragged or not 2-D, if an entry is not a</span>
+<span class="sd">                        valid row index of emg_channels, or if a channel is</span>
+<span class="sd">                        used more than once</span>
+
+<span class="sd">      *INFO* ... EMGFile.data is samples-by-channels, so pass its transpose</span>
+<span class="sd">      *INFO* ... excluding a channel means putting NaN in its map position;</span>
+<span class="sd">                  global_amplitude then drops it, matching the MATLAB</span>
+<span class="sd">                  '*INFO* NaN channels are ignored'</span>
+<span class="sd">    """</span>
+    <span class="n">emg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">emg_channels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">emg</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"emg_channels must be 2-D (channels x samples), got </span><span class="si">{</span><span class="n">emg</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">-D."</span><span class="p">)</span>
+
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">_as_map</span><span class="p">(</span><span class="n">emg_map</span><span class="p">)</span>
+    <span class="n">_check_indices</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">emg</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Build one matrix per column, NaN rows where the map has a gap</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">grid</span><span class="p">:</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">col</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">emg</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">wired</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+        <span class="n">block</span><span class="p">[</span><span class="n">wired</span><span class="p">]</span> <span class="o">=</span> <span class="n">emg</span><span class="p">[</span><span class="n">col</span><span class="p">[</span><span class="n">wired</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)]</span>
+        <span class="n">columns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">columns</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
 
 
 

@@ -74,6 +74,10 @@
 <li>
     <a href="../motor_unit/" class="dropdown-item">motor_unit</a>
 </li>
+                                    
+<li>
+    <a href="../quality/" class="dropdown-item">quality</a>
+</li>
                                 </ul>
                             </li>
                             <li class="nav-item">
@@ -124,7 +128,15 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#envelope-estimation" class="nav-link">Envelope Estimation</a>
+            <li class="nav-item" data-bs-level="2"><a href="#grid-wide-amplitude" class="nav-link">Grid-Wide Amplitude</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#using-it-from-other-tools" class="nav-link">Using it from other tools</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#api-documentation" class="nav-link">API Documentation</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -267,41 +279,814 @@ def compute_entropy(signal: np.ndarray) -&gt; float:
 <li>CEDE Motor Unit Matrix (Martinez-Valdes et al., 2023)</li>
 </ul>
 <hr />
-<h2 id="envelope-estimation">Envelope Estimation</h2>
-<h3 id="7-emg-envelope-arv-rms-median">7. EMG Envelope (ARV, RMS, Median)</h3>
+<h2 id="grid-wide-amplitude">Grid-Wide Amplitude</h2>
+<h3 id="7-global-amplitude">7. Global Amplitude</h3>
 <p><strong>Description:</strong></p>
 <ul>
-<li>Smoothed versions of ARV/RMS/Median using low-pass filtering.</li>
+<li>Reduces a whole HDsEMG grid to one amplitude over time, <code>[xV]</code>.</li>
+<li>Takes the raw channel matrix plus an <code>emg_map</code>; band-pass filtering,
+  MP/SD/DD differentiation and the reduction all happen inside.</li>
+<li><code>method='RMS'</code> (default) or <code>'ARV'</code>.</li>
 </ul>
-<p><strong>Python Implementation:</strong></p>
-<pre><code class="language-python">import numpy as np
-from scipy.signal import butter, filtfilt
-
-def bandpass_filter(signal, fs, lowcut, highcut, order=4):
-    b, a = butter(order, [lowcut, highcut], btype='band', fs=fs)
-    return filtfilt(b, a, signal)
-
-def lowpass_filter(signal, fs, cutoff, order=4):
-    b, a = butter(order, cutoff, btype='low', fs=fs)
-    return filtfilt(b, a, signal)
-
-def compute_emg_envelopes(emg: np.ndarray, fs: float, bpf: dict, lpf: dict):
-    emg_filtered = np.array([
-        bandpass_filter(ch, fs, bpf['fcl'], bpf['fch'], bpf['N']) for ch in emg
-    ])
-    arv = np.nanmean(np.abs(emg_filtered), axis=0)
-    rms = np.sqrt(np.nanmean(emg_filtered ** 2, axis=0))
-    mdn = np.nanmedian(np.abs(emg_filtered), axis=0)
-    arv_env = lowpass_filter(arv, fs, lpf['fc'], lpf['N'])
-    rms_env = lowpass_filter(rms, fs, lpf['fc'], lpf['N'])
-    mdn_env = lowpass_filter(mdn, fs, lpf['fc'], lpf['N'])
-    return arv_env, rms_env, mdn_env
+<p><strong>Definition, in five steps:</strong></p>
+<ol>
+<li>band-pass each channel — 15–450 Hz, exact corners, zero-lag</li>
+<li>square each channel — <code>x_i(t)^2</code> (ARV: <code>|x_i(t)|</code>)</li>
+<li>smooth each channel in time — 15 Hz equivalent, zero-lag</li>
+<li>mean across the channels — the mean square over the grid area</li>
+<li>square root, <strong>last</strong> — the global amplitude <code>A(t)</code></li>
+</ol>
+<p>The root comes last because Merletti &amp; Cerone (eq. 5.1/5.2) define a region's
+RMS as the root of the mean of <code>f^2</code> over <strong>both</strong> space and time, taken at
+the very end, which makes <code>mean_space(RMS^2) == mean_time(RMS^2)</code>. Rooting per
+channel first breaks that identity and makes the result depend on how many
+channels survived, by <code>E[chi_n]/sqrt(n)</code> — 0.940 at 4 channels, 0.979 at 12,
+0.995 at 48. That matters directly: an MVC trial and a tracking trial rarely
+keep the same channels, and their ratio is the reported %MVC.</p>
+<p>This is the one difference from the MATLAB original <code>globEMGAmpEnv</code>, which
+reduces across the channels at every sample and smooths afterwards. Every
+other MATLAB setting is reachable through the arguments.</p>
+<p><strong>The <code>emg_map</code>:</strong></p>
+<p>Follows openhdemg's <code>custom_sorting_order</code> — outer index is the grid
+<strong>column</strong>, inner index the <strong>row</strong>, entries are base-0 channel numbers into
+<code>emg_channels</code>, <code>np.nan</code> where no electrode sits or a channel is excluded.</p>
+<pre><code class="language-python">emg_map = [[0, 1,  2,  3     ],   # col0
+           [4, 5,  6,  7     ],   # col1
+           [8, 9, 10, np.nan]]    # col2, one gap
 </code></pre>
+<p><code>hdsemg_shared.preprocessing.grid_map.emg_map_from_indices</code> builds one from a
+<code>Grid</code>'s flat <code>emg_indices</code> plus <code>rows</code>/<code>cols</code>.</p>
+<p><strong>Example Usage:</strong></p>
+<pre><code class="language-python">import numpy as np
+from hdsemg_shared.fileio.file_io import EMGFile
+from hdsemg_shared.global_parameters import global_amplitude
+from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices
+
+emg_file = EMGFile.load(&quot;recording.otb+&quot;)
+grid = emg_file.grids[0]
+emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
+
+# EMGFile.data is (n_samples, n_channels), the chain wants channels first
+out = global_amplitude(emg_file.data.T, emg_map, emg_file.sampling_frequency,
+                       method='RMS', derivation='SD')
+
+out.amplitude      # global amplitude over time      [xV]
+out.per_channel    # each channel's own envelope     [xV]
+out.positions      # (column, row) of each channel
+out.grid_shape     # (nCols, nRows) after derivation
+out.n_channels     # how many contributed
+</code></pre>
+<p>Excluding channels is the caller's job: intersect the selection with the
+grid's own channels, then put <code>np.nan</code> in the map at every excluded position.
+Channels whose signal carries <code>NaN</code> are dropped too, matching the MATLAB
+<code>*INFO* NaN channels are ignored</code>.</p>
+<p><strong>Options:</strong></p>
+<table>
+<thead>
+<tr>
+<th>argument</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>method</code></td>
+<td><code>'RMS'</code></td>
+<td><code>'RMS'</code> or <code>'ARV'</code></td>
+</tr>
+<tr>
+<td><code>derivation</code></td>
+<td><code>'MP'</code></td>
+<td><code>'MP'</code>, <code>'SD'</code> or <code>'DD'</code></td>
+</tr>
+<tr>
+<td><code>diff_direction</code></td>
+<td><code>'cols'</code></td>
+<td>which grid axis SD/DD difference along — <code>'cols'</code> walks <strong>down</strong> a map column, <code>'rows'</code> walks <strong>across</strong> a row. Ignored for <code>'MP'</code></td>
+</tr>
+<tr>
+<td><code>bpf</code></td>
+<td><code>{'N': 2, 'fcl': 15.0, 'fch': 450.0, 'corners': 'exact'}</code></td>
+<td>band-pass; <code>corners='prewarp'</code> for MATLAB-identical filtering</td>
+</tr>
+<tr>
+<td><code>smooth</code></td>
+<td><code>{'mode': 'moving', 'fc': 15.0, 'kernel': 'bidirectional'}</code></td>
+<td><code>'moving'</code> boxcar or <code>'lowpass'</code> butterworth; same <code>fc</code> gives the same bandwidth</td>
+</tr>
+<tr>
+<td><code>pad_s</code></td>
+<td><code>0.25</code></td>
+<td>reflection pad at each end, guards the filter transient</td>
+</tr>
+</tbody>
+</table>
+<p>The MATLAB settings are <code>bpf={'N': 2, 'fcl': 30.0, 'fch': 450.0,
+'corners': 'prewarp'}</code>, <code>smooth={'mode': 'lowpass', 'fc': 6.0, 'N': 2}</code> and
+<code>pad_s=0</code>.</p>
+<h3 id="choosing-diff_direction">Choosing <code>diff_direction</code></h3>
+<p>Point the differencing <strong>along the muscle fibres</strong> — that is what makes an SD
+or DD signal a propagating-potential measure rather than an arbitrary spatial
+filter.</p>
+<p><code>'cols'</code> (the default) differences down a map column, i.e. between vertically
+adjacent electrodes. It is right when the map's columns run along the fibres,
+which is how MATLAB's <code>mat2grid</code> and openhdemg's <code>sort_rawemg</code> lay a grid out.
+Use <code>'rows'</code> for a grid rotated 90° against that.</p>
+<p>On a 3-column × 4-row map built column-first, neighbours within a column are
+one channel apart and neighbours across a row are four apart:</p>
+<pre><code class="language-python">emg_map = emg_map_from_indices(range(12), rows=4, cols=3)
+# [[ 0,  1,  2,  3],      diff_direction='cols'  -&gt;  (3, 3) grid, 9 channels
+#  [ 4,  5,  6,  7],      diff_direction='rows'  -&gt;  (2, 4) grid, 8 channels
+#  [ 8,  9, 10, 11]]
+</code></pre>
+<p>Transposing the map turns one direction into the other exactly, so the two
+spellings are equivalent in arithmetic — but prefer <code>diff_direction</code>. It
+leaves the map in the layout openhdemg produced, so <code>positions</code> and
+<code>grid_shape</code> keep referring to the physical grid; a transposed map quietly
+swaps rows for columns in everything downstream.</p>
+<p>Orientation is a separate matter from <code>diff_direction</code>: openhdemg's built-in
+codes only ever flip 0° / 180°, which maps a column onto a column and so never
+changes which physical axis <code>'cols'</code> runs along. See <em>Orientation, the corner,
+and <code>diff_direction</code></em> below.</p>
 <p><strong>References:</strong></p>
 <ul>
-<li>Merletti &amp; Farina (2016)</li>
+<li>Merletti R, Cerone GL. <em>Techniques for information extraction from the surface EMG signal</em>, eq. 5.1/5.2. In: Merletti &amp; Farina (2016/2018).</li>
+<li>Del Vecchio A et al. (2025). <em>J Appl Physiol</em>, doi:10.1152/japplphysiol.00810.2024</li>
 <li>CEDE Best Practice: Amplitude Matrix</li>
-</ul></div>
+</ul>
+<hr />
+<h2 id="using-it-from-other-tools">Using it from other tools</h2>
+<h3 id="from-openhdemg">From openhdemg</h3>
+<p><strong>Let openhdemg place the electrodes.</strong> <code>electrodes.py</code> stores one
+<code>base0_sorting_order</code> grid literal <em>per orientation</em>, together with a
+<code>base0_nanpos</code> marking the empty channel — the rotation is data openhdemg
+already owns. Ask <code>sort_rawemg</code> for the orientation you want and use what it
+returns; never rotate or transpose a map yourself, because that moves the
+physical corner and silently re-labels the electrodes.</p>
+<p>Get the map for a built-in matrix code by sorting the channel <em>numbers</em>
+instead of the signal:</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+import openhdemg.library as emg
+from hdsemg_shared.global_parameters import global_amplitude
+
+def emg_map_from_code(n_channels, code, orientation):
+    &quot;&quot;&quot;The channel numbers of an OTB matrix, as an emg_map, at one orientation.&quot;&quot;&quot;
+    probe = {&quot;RAW_SIGNAL&quot;: pd.DataFrame(np.arange(n_channels, dtype=float).reshape(1, -1))}
+    sorted_probe = emg.sort_rawemg(probe, code=code, orientation=orientation,
+                                   dividebycolumn=True)
+    if isinstance(sorted_probe, Exception):
+        raise ValueError(sorted_probe)   # sort_rawemg RETURNS its errors
+    return np.array([sorted_probe[&quot;col{}&quot;.format(j)].iloc[0, :].to_numpy()
+                     for j in range(len(sorted_probe))])
+
+emgfile = emg.askopenfile(filesource=&quot;OTB&quot;, otb_ext_factor=8)
+emg_map = emg_map_from_code(64, &quot;GR08MM1305&quot;, orientation=0)
+
+# RAW_SIGNAL is samples-by-channels; the chain wants channels first
+out = global_amplitude(emgfile[&quot;RAW_SIGNAL&quot;].to_numpy().T, emg_map,
+                       emgfile[&quot;FSAMP&quot;], method='RMS', derivation='SD')
+</code></pre>
+<p>Pass <code>orientation</code> explicitly. There is no safe default: it decides which
+index the physical corner electrode carries.</p>
+<p><code>sort_rawemg</code> <strong>returns</strong> a <code>ValueError</code> rather than raising it for an
+unsupported code/orientation, hence the explicit check.</p>
+<p>If you have a grid openhdemg does not know, its <code>custom_sorting_order</code> is an
+<code>emg_map</code> unchanged — same format, outer index = column, inner = row:</p>
+<pre><code class="language-python">custom_sorting_order = [
+    [63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52,     51,],
+    [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,     50,],
+    [37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26,     25,],
+    [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,     24,],
+    [11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  0, np.nan,],
+]  # this particular one IS openhdemg's GR08MM1305 table at orientation 0
+
+out = global_amplitude(emg_channels, custom_sorting_order, fs, derivation='SD')
+</code></pre>
+<p>Note that <code>hdsemg_shared</code> does <strong>not</strong> import openhdemg — it only follows the
+same map format, so nothing here adds a dependency.</p>
+<h4 id="orientation-the-corner-and-diff_direction">Orientation, the corner, and <code>diff_direction</code></h4>
+<p>GR08MM1305 has 64 electrodes in 5 × 13 = 65 slots, so one slot is empty, and
+that slot is a <strong>corner</strong> of the physical array. openhdemg's <code>orientation=0</code>
+and <code>orientation=180</code> are the same physical grid turned 180°
+(<code>np.rot90(map_180, 2) == map_0</code>), so the corner changes <em>index</em> — <code>(4, 12)</code>
+at 0, <code>(0, 0)</code> at 180 — while remaining the same physical electrode.</p>
+<p>A 180° turn maps a column onto a column, so it cannot change which physical
+axis a derivation runs along. The derived channel counts are therefore
+identical at both orientations:</p>
+<table>
+<thead>
+<tr>
+<th>derivation</th>
+<th><code>diff_direction</code></th>
+<th>derived grid</th>
+<th>channels</th>
+<th>why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SD</td>
+<td><code>'cols'</code></td>
+<td>(5, 12)</td>
+<td><strong>59</strong></td>
+<td>4 columns × 12, plus the gapped column's 11</td>
+</tr>
+<tr>
+<td>DD</td>
+<td><code>'cols'</code></td>
+<td>(5, 11)</td>
+<td><strong>54</strong></td>
+<td>4 columns × 11, plus 10</td>
+</tr>
+<tr>
+<td>SD</td>
+<td><code>'rows'</code></td>
+<td>(4, 13)</td>
+<td><strong>51</strong></td>
+<td>12 rows × 4, plus the gapped row's 3</td>
+</tr>
+<tr>
+<td>DD</td>
+<td><code>'rows'</code></td>
+<td>(3, 13)</td>
+<td><strong>38</strong></td>
+<td>12 rows × 3, plus 2</td>
+</tr>
+</tbody>
+</table>
+<p>Because the empty slot is a corner it always sits at the <em>end</em> of both its
+column and its row, so it breaks exactly one adjacent pair in each direction.
+A gap in the <em>middle</em> of a column would break two — that is the general rule,
+not the 59.</p>
+<p>openhdemg only ever offers 0° and 180° for its built-in codes, never 90°, so
+for those <code>diff_direction='cols'</code> always runs along the same physical axis.
+Use <code>'rows'</code> when the grid was physically mounted turned 90° against the
+fibres, which no orientation flag can express.</p>
+<h3 id="from-hdsemg-pipe">From hdsemg-pipe</h3>
+<p>pipe holds an <code>EMGFile</code> and its <code>Grid</code> objects, and nothing else about the
+geometry, so build the map from the flat <code>emg_indices</code>:</p>
+<pre><code class="language-python">import json
+import numpy as np
+from hdsemg_shared.fileio.file_io import EMGFile
+from hdsemg_shared.global_parameters import global_amplitude
+from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices
+
+emg_file = EMGFile.load(cropped_file_path)
+emg_channels = emg_file.data.T          # (n_samples, n_channels) -&gt; channels first
+
+results = {}
+for grid in emg_file.grids:
+    emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
+
+    out = global_amplitude(emg_channels, emg_map, emg_file.sampling_frequency,
+                           method='RMS', derivation='MP')
+
+    results[grid.grid_key] = {
+        &quot;muscle&quot;: grid.muscle,
+        &quot;ied_mm&quot;: grid.ied_mm,
+        &quot;n_channels&quot;: out.n_channels,
+        &quot;mean_uv&quot;: float(out.amplitude.mean()),
+        &quot;max_uv&quot;: float(out.amplitude.max()),
+        &quot;per_channel_uv&quot;: {
+            &quot;{}_{}&quot;.format(col, row): float(envelope.mean())
+            for (col, row), envelope in zip(out.positions, out.per_channel)
+        },
+    }
+
+with open(base_name + &quot;_globalamp.json&quot;, &quot;w&quot;) as fh:
+    json.dump({&quot;grids&quot;: results}, fh, indent=2)
+</code></pre>
+<p>This mirrors the existing <code>{base_name}_rms.json</code> sidecar contract, so a
+consumer can pick it up the same way <code>RMSLoader</code> picks up the RMS one.</p>
+<p>A grid with an unwired position — HD08MM1305 has 64 electrodes in 5×13 = 65
+slots — cannot be described by <code>emg_map_from_indices</code> and raises. Pass an
+explicit map with <code>np.nan</code> at the empty slot for those.</p>
+<h3 id="from-hdsemg-select">From hdsemg-select</h3>
+<p>select holds three things the map has to be built from, and two of them are
+easy to get wrong:</p>
+<ul>
+<li><code>_electrode_display_grid</code> — a <code>(rows, cols)</code> float array whose entries are
+  <strong>local, 0-based indices into that grid's <code>emg_indices</code></strong>, not global data
+  columns, with <code>np.nan</code> at absent positions.</li>
+<li><code>channel_status</code> — a flat <code>list[bool]</code> indexed by <strong>global</strong> data column,
+  whose <code>True</code> entries include the reference channels.</li>
+<li>the crop, via <code>get_effective_emg_data()</code>.</li>
+</ul>
+<p>So a caller has to resolve local → global through <code>emg_indices</code>, and intersect
+the mask with the grid's own channels. Excluded positions become <code>np.nan</code>:</p>
+<pre><code class="language-python">import numpy as np
+from hdsemg_shared.global_parameters import global_amplitude
+
+def emg_map_from_selection(display_grid, emg_indices, channel_status):
+    &quot;&quot;&quot;select's display grid + selection mask, as an emg_map.&quot;&quot;&quot;
+    rows, cols = display_grid.shape
+    emg_map = np.full((cols, rows), np.nan)         # emg_map is (nCols, nRows)
+    for row in range(rows):
+        for col in range(cols):
+            local = display_grid[row, col]
+            if np.isnan(local):
+                continue                            # no electrode at this position
+            channel = emg_indices[int(local)]
+            if channel_status[channel]:             # keep only selected channels
+                emg_map[col, row] = channel
+    return emg_map
+
+handler = ...                                       # GridSetupHandler for the active grid
+emg_map = emg_map_from_selection(handler.get_electrode_display_grid(),
+                                 grid.emg_indices,
+                                 global_state.get_channel_status())
+
+out = global_amplitude(global_state.get_effective_emg_data().T, emg_map,
+                       emg_file.sampling_frequency, method='ARV')
+</code></pre>
+<p>For a density map, scatter <code>per_channel</code> back onto the grid with <code>positions</code> —
+this replaces the ad-hoc <code>channels_to_grid</code> step, and it stays correct for
+<code>'SD'</code>/<code>'DD'</code>, where a row of <code>per_channel</code> is a difference of two electrodes
+and has no single channel number:</p>
+<pre><code class="language-python">n_cols, n_rows = out.grid_shape
+frame = np.full((n_rows, n_cols), np.nan)
+for (col, row), envelope in zip(out.positions, out.per_channel):
+    frame[row, col] = envelope[sample_index]        # (rows, cols) for plotting
+</code></pre>
+<p>Excluding a channel changes how many contribute, and <code>amplitude</code> is
+independent of that count by construction — so toggling a channel on or off in
+the review tool does not shift the level, it only changes what is being
+averaged over.</p>
+<hr />
+<h2 id="api-documentation">API Documentation</h2>
+
+
+  <div class="doc doc-object doc-module">
+
+<a id="hdsemg_shared.global_parameters.global_amplitude"></a>
+    <div class="doc doc-contents first">
+
+      <p>GLOBAL_AMPLITUDE: the one definition of the global HDsEMG amplitude</p>
+<p>Everything that needs a global amplitude comes through here, so there is
+  no second definition that can drift away from this one.</p>
+<p>THE DEFINITION, IN FIVE STEPS
+    1  band-pass each channel        15-450 Hz, exact corners, zero-lag
+    2  square each channel           x_i(t)^2        (ARV: |x_i(t)|)
+    3  smooth each channel in time   15 Hz equivalent, zero-lag
+    4  mean across the channels      -&gt; mean square over the grid area
+    5  square-root, LAST             -&gt; global amplitude A(t)      [xV]</p>
+<p>WHY THE ROOT COMES LAST
+    Merletti and Cerone define the RMS of a region of area a*b over an
+    interval T as the root of the mean of f^2 over BOTH space and time,
+    taken at the very end, which makes mean_space(RMS^2) == mean_time(RMS^2).
+    That identity holds only for the SQUARED quantity, so rooting per channel
+    first breaks it and makes the result depend on how many channels
+    survived, by E[chi_n]/sqrt(n):</p>
+<pre><code>    nCh      4      8     12     24     48
+    factor  .940   .969   .979   .990   .995
+
+That matters directly: an MVC trial and a tracking trial rarely keep the
+same channels and their ratio is the reported %MVC. Smoothing in time
+BEFORE reducing across the channels removes the dependence, residual
+spread 0.4 % from 4 to 48 channels.
+</code></pre>
+<p>DIFFERENCE TO THE MATLAB ORIGINAL
+    globEMGAmpEnv reduces across the channels at every single sample and
+    smooths afterwards, A(t) = lowpass(sqrt(mean_ch x_i(t)^2)), which is the
+    ordering corrected above. Every other MATLAB setting is still reachable
+    through the arguments, see the global_amplitude <em>INFO</em> block.</p>
+<p>REFERENCES
+    Merletti R, Cerone GL. Techniques for information extraction from the
+      surface EMG signal, eq. 5.1 and 5.2. In: Merletti &amp; Farina (2016/2018).
+    Del Vecchio A et al. J Appl Physiol (2025),
+      doi:10.1152/japplphysiol.00810.2024</p>
+<p>PORT of SP_AM_CV_HDsEMG_Analysis.m, local function globEMGAmpEnv
+  (line 1485), (c) H Penasso Feb. 12, 2020.
+  Ported and extended for hdsemg-shared by Claude Opus 5, 2026-08-19.</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-class">
+
+
+
+<h3 id="hdsemg_shared.global_parameters.global_amplitude.GlobalAmplitude" class="doc doc-heading">
+        <code>
+GlobalAmplitude            (<span title="tuple">tuple</span>)
+        </code>
+
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>amplitude   ... global amplitude over time [xV]
+per_channel ... each channel's own amplitude envelope, rows are channels
+                 in the order of positions [xV]
+positions   ... (column, row) of each kept channel in the derived grid []
+grid_shape  ... (nCols, nRows) of the derived grid []
+n_channels  ... how many channels actually contributed []</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/global_parameters/global_amplitude.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">GlobalAmplitude</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    amplitude   ... global amplitude over time [xV]</span>
+<span class="sd">    per_channel ... each channel's own amplitude envelope, rows are channels</span>
+<span class="sd">                     in the order of positions [xV]</span>
+<span class="sd">    positions   ... (column, row) of each kept channel in the derived grid []</span>
+<span class="sd">    grid_shape  ... (nCols, nRows) of the derived grid []</span>
+<span class="sd">    n_channels  ... how many channels actually contributed []</span>
+<span class="sd">    """</span>
+
+    <span class="n">amplitude</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">per_channel</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">positions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">grid_shape</span><span class="p">:</span> <span class="nb">tuple</span>
+    <span class="n">n_channels</span><span class="p">:</span> <span class="nb">int</span>
+</code></pre></div>
+        </details>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h4 id="hdsemg_shared.global_parameters.global_amplitude.GlobalAmplitude.__getnewargs__" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">__getnewargs__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-special"><code>special</code></small>
+  </span>
+
+</h4>
+
+    <div class="doc doc-contents ">
+
+      <p>Return self as a plain tuple.  Used by copy and pickle.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/global_parameters/global_amplitude.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__getnewargs__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="s1">'Return self as a plain tuple.  Used by copy and pickle.'</span>
+    <span class="k">return</span> <span class="n">_tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h4 id="hdsemg_shared.global_parameters.global_amplitude.GlobalAmplitude.__new__" class="doc doc-heading">
+<code class="highlight language-python"><span class="fm">__new__</span><span class="p">(</span><span class="n">_cls</span><span class="p">,</span> <span class="n">amplitude</span><span class="p">,</span> <span class="n">per_channel</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">grid_shape</span><span class="p">,</span> <span class="n">n_channels</span><span class="p">)</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-special"><code>special</code></small>
+      <small class="doc doc-property doc-property-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+</h4>
+
+    <div class="doc doc-contents ">
+
+      <p>Create new instance of GlobalAmplitude(amplitude, per_channel, positions, grid_shape, n_channels)</p>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h4 id="hdsemg_shared.global_parameters.global_amplitude.GlobalAmplitude.__replace__" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">__replace__</span><span class="p">(</span><span class="o">/</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-special"><code>special</code></small>
+  </span>
+
+</h4>
+
+    <div class="doc doc-contents ">
+
+      <p>Return a new GlobalAmplitude object replacing specified fields with new values</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/global_parameters/global_amplitude.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make</span><span class="p">(</span><span class="n">_map</span><span class="p">(</span><span class="n">kwds</span><span class="o">.</span><span class="n">pop</span><span class="p">,</span> <span class="n">field_names</span><span class="p">,</span> <span class="bp">self</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">kwds</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Got unexpected field names: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">kwds</span><span class="p">)</span><span class="si">!r}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h4 id="hdsemg_shared.global_parameters.global_amplitude.GlobalAmplitude.__repr__" class="doc doc-heading">
+<code class="highlight language-python"><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-special"><code>special</code></small>
+  </span>
+
+</h4>
+
+    <div class="doc doc-contents ">
+
+      <p>Return a nicely formatted representation string</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/global_parameters/global_amplitude.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="s1">'Return a nicely formatted representation string'</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">+</span> <span class="n">repr_fmt</span> <span class="o">%</span> <span class="bp">self</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h3 id="hdsemg_shared.global_parameters.global_amplitude.global_amplitude" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">global_amplitude</span><span class="p">(</span><span class="n">emg_channels</span><span class="p">,</span> <span class="n">emg_map</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'RMS'</span><span class="p">,</span> <span class="n">derivation</span><span class="o">=</span><span class="s1">'MP'</span><span class="p">,</span> <span class="n">diff_direction</span><span class="o">=</span><span class="s1">'cols'</span><span class="p">,</span> <span class="n">bpf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">smooth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pad_s</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span></code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+      <p>GLOBAL_AMPLITUDE calculates the global HDsEMG amplitude of a grid over time</p>
+<p>out = global_amplitude(emg.T, emg_map, fs)
+  out = global_amplitude(emg.T, emg_map, fs, method = 'ARV', derivation = 'SD')
+  out = global_amplitude(emg.T, emg_map, fs, derivation = 'SD', diff_direction = 'rows')</p>
+<p>INPUT
+    emg_channels ... matrix, each row contains one channel's raw signal
+                      over time (rows = channels, columns = samples).
+                      Filtering is applied here, so pass it unfiltered.
+                      May hold more channels than the map refers to [xV]
+    emg_map      ... list of lists or 2-D array following openhdemg's
+                      custom_sorting_order: outer index = grid column,
+                      inner index = row, base-0 channel numbers, NaN
+                      where no electrode sits or a channel is excluded []
+    fs           ... double or int, sampling frequency [Hz]</p>
+<p>OPTIONAL INPUT
+    method       ... char, 'RMS' (default) or 'ARV' []
+    derivation   ... char, 'MP' (default, monopolar), 'SD' (single
+                      differential) or 'DD' (double differential). The
+                      difference is taken on the raw signal, before
+                      filtering []
+    diff_direction ... char, which grid axis SD and DD difference along:
+                      'cols' (default) walks DOWN a map column, between
+                      vertically adjacent electrodes; 'rows' walks ACROSS
+                      a row, between horizontally adjacent ones. Ignored
+                      for derivation 'MP' []
+    bpf          ... dict with bandpassfilter options, keys:
+                      x 'N'       - filter order, even, default 2 []
+                      x 'fcl'     - lower cutoff, default 15.0 [Hz]
+                      x 'fch'     - higher cutoff, default 450.0 [Hz]
+                      x 'corners' - 'exact' (default) or 'prewarp' for
+                                     MATLAB-identical filtering []
+    smooth       ... dict with smoothing options, keys:
+                      x 'mode'     - 'moving' (default) or 'lowpass' []
+                      x 'fc'       - cutoff, default 15.0 [Hz]
+                      x 'window_s' - window width instead of fc, 'moving'
+                                      only, default None [s]
+                      x 'kernel'   - 'bidirectional' (default) or
+                                      'rectangular', 'moving' only []
+                      x 'N'        - filter order, 'lowpass' only,
+                                      default 2 []
+    pad_s        ... length of the reflection pad at each end, 0 disables
+                      it. Default 0.25 [s]</p>
+<p>OUTPUT
+    out ... GlobalAmplitude with
+             x amplitude   - global amplitude over time [xV]
+             x per_channel - each channel's own amplitude envelope [xV]
+             x positions   - (column, row) of each kept channel []
+             x grid_shape  - (nCols, nRows) of the derived grid []
+             x n_channels  - how many channels contributed []</p>
+<p>RAISES
+    ValueError ... on an unknown method, derivation, or option key, on a
+                    map too short for the derivation, or when no channel
+                    survives</p>
+<p><em>INFO</em> ... NaN channels are ignored. A channel is dropped when the map
+              puts NaN at its position or when its signal carries any NaN
+  <em>INFO</em> ... point the differencing along the muscle fibres. 'cols' is
+              right when the map's columns run along the fibres, which is
+              how MATLAB's mat2grid and openhdemg's sort_rawemg lay a grid
+              out; use 'rows' for a grid rotated 90 deg against that
+  <em>INFO</em> ... EMGFile.data is samples-by-channels, so pass its transpose.
+              Applying a selection mask is the CALLER's job: intersect it
+              with the grid's own channels first, then put NaN in the map
+              at every excluded position
+  <em>INFO</em> ... per_channel is a per-channel amplitude in [xV], so the root
+              IS taken per channel for it. It is a display quantity, for
+              a density map; it is deliberately NOT how amplitude is
+              computed, which reduces across channels before rooting
+  <em>INFO</em> ... the MATLAB settings are bpf = {'N': 2, 'fcl': 30.0,
+              'fch': 450.0, 'corners': 'prewarp'}, smooth = {'mode':
+              'lowpass', 'fc': 6.0, 'N': 2} and pad_s = 0. The root
+              ordering is then the only remaining difference
+  <em>INFO</em> ... with a single channel MATLAB collapses all three of its
+              outputs to lowpass(|x|). Here ARV still does that, while
+              RMS stays the moving RMS of that channel - the consistent
+              extension of the definition rather than a special case</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/global_parameters/global_amplitude.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">global_amplitude</span><span class="p">(</span><span class="n">emg_channels</span><span class="p">,</span> <span class="n">emg_map</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">method</span> <span class="o">=</span> <span class="s1">'RMS'</span><span class="p">,</span> <span class="n">derivation</span> <span class="o">=</span> <span class="s1">'MP'</span><span class="p">,</span>
+                     <span class="n">diff_direction</span> <span class="o">=</span> <span class="s1">'cols'</span><span class="p">,</span> <span class="n">bpf</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">smooth</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">pad_s</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    GLOBAL_AMPLITUDE calculates the global HDsEMG amplitude of a grid over time</span>
+
+<span class="sd">      out = global_amplitude(emg.T, emg_map, fs)</span>
+<span class="sd">      out = global_amplitude(emg.T, emg_map, fs, method = 'ARV', derivation = 'SD')</span>
+<span class="sd">      out = global_amplitude(emg.T, emg_map, fs, derivation = 'SD', diff_direction = 'rows')</span>
+
+<span class="sd">      INPUT</span>
+<span class="sd">        emg_channels ... matrix, each row contains one channel's raw signal</span>
+<span class="sd">                          over time (rows = channels, columns = samples).</span>
+<span class="sd">                          Filtering is applied here, so pass it unfiltered.</span>
+<span class="sd">                          May hold more channels than the map refers to [xV]</span>
+<span class="sd">        emg_map      ... list of lists or 2-D array following openhdemg's</span>
+<span class="sd">                          custom_sorting_order: outer index = grid column,</span>
+<span class="sd">                          inner index = row, base-0 channel numbers, NaN</span>
+<span class="sd">                          where no electrode sits or a channel is excluded []</span>
+<span class="sd">        fs           ... double or int, sampling frequency [Hz]</span>
+
+<span class="sd">      OPTIONAL INPUT</span>
+<span class="sd">        method       ... char, 'RMS' (default) or 'ARV' []</span>
+<span class="sd">        derivation   ... char, 'MP' (default, monopolar), 'SD' (single</span>
+<span class="sd">                          differential) or 'DD' (double differential). The</span>
+<span class="sd">                          difference is taken on the raw signal, before</span>
+<span class="sd">                          filtering []</span>
+<span class="sd">        diff_direction ... char, which grid axis SD and DD difference along:</span>
+<span class="sd">                          'cols' (default) walks DOWN a map column, between</span>
+<span class="sd">                          vertically adjacent electrodes; 'rows' walks ACROSS</span>
+<span class="sd">                          a row, between horizontally adjacent ones. Ignored</span>
+<span class="sd">                          for derivation 'MP' []</span>
+<span class="sd">        bpf          ... dict with bandpassfilter options, keys:</span>
+<span class="sd">                          x 'N'       - filter order, even, default 2 []</span>
+<span class="sd">                          x 'fcl'     - lower cutoff, default 15.0 [Hz]</span>
+<span class="sd">                          x 'fch'     - higher cutoff, default 450.0 [Hz]</span>
+<span class="sd">                          x 'corners' - 'exact' (default) or 'prewarp' for</span>
+<span class="sd">                                         MATLAB-identical filtering []</span>
+<span class="sd">        smooth       ... dict with smoothing options, keys:</span>
+<span class="sd">                          x 'mode'     - 'moving' (default) or 'lowpass' []</span>
+<span class="sd">                          x 'fc'       - cutoff, default 15.0 [Hz]</span>
+<span class="sd">                          x 'window_s' - window width instead of fc, 'moving'</span>
+<span class="sd">                                          only, default None [s]</span>
+<span class="sd">                          x 'kernel'   - 'bidirectional' (default) or</span>
+<span class="sd">                                          'rectangular', 'moving' only []</span>
+<span class="sd">                          x 'N'        - filter order, 'lowpass' only,</span>
+<span class="sd">                                          default 2 []</span>
+<span class="sd">        pad_s        ... length of the reflection pad at each end, 0 disables</span>
+<span class="sd">                          it. Default 0.25 [s]</span>
+
+<span class="sd">      OUTPUT</span>
+<span class="sd">        out ... GlobalAmplitude with</span>
+<span class="sd">                 x amplitude   - global amplitude over time [xV]</span>
+<span class="sd">                 x per_channel - each channel's own amplitude envelope [xV]</span>
+<span class="sd">                 x positions   - (column, row) of each kept channel []</span>
+<span class="sd">                 x grid_shape  - (nCols, nRows) of the derived grid []</span>
+<span class="sd">                 x n_channels  - how many channels contributed []</span>
+
+<span class="sd">      RAISES</span>
+<span class="sd">        ValueError ... on an unknown method, derivation, or option key, on a</span>
+<span class="sd">                        map too short for the derivation, or when no channel</span>
+<span class="sd">                        survives</span>
+
+<span class="sd">      *INFO* ... NaN channels are ignored. A channel is dropped when the map</span>
+<span class="sd">                  puts NaN at its position or when its signal carries any NaN</span>
+<span class="sd">      *INFO* ... point the differencing along the muscle fibres. 'cols' is</span>
+<span class="sd">                  right when the map's columns run along the fibres, which is</span>
+<span class="sd">                  how MATLAB's mat2grid and openhdemg's sort_rawemg lay a grid</span>
+<span class="sd">                  out; use 'rows' for a grid rotated 90 deg against that</span>
+<span class="sd">      *INFO* ... EMGFile.data is samples-by-channels, so pass its transpose.</span>
+<span class="sd">                  Applying a selection mask is the CALLER's job: intersect it</span>
+<span class="sd">                  with the grid's own channels first, then put NaN in the map</span>
+<span class="sd">                  at every excluded position</span>
+<span class="sd">      *INFO* ... per_channel is a per-channel amplitude in [xV], so the root</span>
+<span class="sd">                  IS taken per channel for it. It is a display quantity, for</span>
+<span class="sd">                  a density map; it is deliberately NOT how amplitude is</span>
+<span class="sd">                  computed, which reduces across channels before rooting</span>
+<span class="sd">      *INFO* ... the MATLAB settings are bpf = {'N': 2, 'fcl': 30.0,</span>
+<span class="sd">                  'fch': 450.0, 'corners': 'prewarp'}, smooth = {'mode':</span>
+<span class="sd">                  'lowpass', 'fc': 6.0, 'N': 2} and pad_s = 0. The root</span>
+<span class="sd">                  ordering is then the only remaining difference</span>
+<span class="sd">      *INFO* ... with a single channel MATLAB collapses all three of its</span>
+<span class="sd">                  outputs to lowpass(|x|). Here ARV still does that, while</span>
+<span class="sd">                  RMS stays the moving RMS of that channel - the consistent</span>
+<span class="sd">                  extension of the definition rather than a special case</span>
+<span class="sd">    """</span>
+    <span class="n">method</span> <span class="o">=</span> <span class="n">_check_choice</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="p">(</span><span class="s1">'RMS'</span><span class="p">,</span> <span class="s1">'ARV'</span><span class="p">),</span> <span class="s1">'method'</span><span class="p">)</span>
+    <span class="n">derivation</span> <span class="o">=</span> <span class="n">_check_choice</span><span class="p">(</span><span class="n">derivation</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">_DERIVATIONS</span><span class="p">),</span> <span class="s1">'derivation'</span><span class="p">)</span>
+    <span class="n">diff_direction</span> <span class="o">=</span> <span class="n">_check_choice</span><span class="p">(</span><span class="n">diff_direction</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">_DIFF_AXIS</span><span class="p">),</span> <span class="s1">'diff_direction'</span><span class="p">)</span>
+    <span class="n">bpf</span> <span class="o">=</span> <span class="n">_merge</span><span class="p">(</span><span class="n">DEFAULT_BPF</span><span class="p">,</span> <span class="n">bpf</span><span class="p">,</span> <span class="s1">'bpf'</span><span class="p">)</span>
+    <span class="n">smooth</span> <span class="o">=</span> <span class="n">_merge</span><span class="p">(</span><span class="n">DEFAULT_SMOOTH</span><span class="p">,</span> <span class="n">smooth</span><span class="p">,</span> <span class="s1">'smooth'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pad_s</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"pad_s must be &gt;= 0, got </span><span class="si">{</span><span class="n">pad_s</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="c1"># Select and order the mapped channels, then difference along the chosen axis</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">map_to_columns</span><span class="p">(</span><span class="n">emg_channels</span><span class="p">,</span> <span class="n">emg_map</span><span class="p">))</span>  <span class="c1"># (nCols, nRows, nSamples)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">_differentiate</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">derivation</span><span class="p">,</span> <span class="n">diff_direction</span><span class="p">)</span>
+    <span class="n">grid_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">grid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># Flatten to a channel matrix, column by column, the way MATLAB's grid2mat</span>
+    <span class="c1"># does, and keep only the channels carrying signal</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">grid_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">grid_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">positions</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">positions</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No channel survived the map and the '</span><span class="si">{</span><span class="n">derivation</span><span class="si">}</span><span class="s2">' derivation."</span><span class="p">)</span>
+
+    <span class="c1"># Band-pass each channel, guarding both ends against the filter transient</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">_padded</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">pad_s</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">_bandpass</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">bpf</span><span class="p">,</span> <span class="n">fs</span><span class="p">))</span>
+
+    <span class="c1"># Square (RMS) or rectify (ARV), then smooth each channel in time</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">'RMS'</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">_padded</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">pad_s</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">_smooth</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">smooth</span><span class="p">,</span> <span class="n">fs</span><span class="p">))</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># a butterworth can undershoot below zero</span>
+
+    <span class="c1"># Mean across the channels, root LAST</span>
+    <span class="n">mean_p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">amplitude</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_p</span><span class="p">)</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">'RMS'</span> <span class="k">else</span> <span class="n">mean_p</span>
+    <span class="n">per_channel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">'RMS'</span> <span class="k">else</span> <span class="n">p</span>
+
+    <span class="k">return</span> <span class="n">GlobalAmplitude</span><span class="p">(</span><span class="n">amplitude</span><span class="p">,</span> <span class="n">per_channel</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">grid_shape</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div></div>
             </div>
         </div>
 
