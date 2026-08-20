@@ -116,16 +116,89 @@ This results in j-1 differential channels for j input channels.
 - Preprocessing for motor unit decomposition
 - Improving spatial resolution of EMG recordings
 
+## Grid Mapping
+
+`hdsemg_shared.preprocessing.grid_map` turns a flat channel matrix into HDsEMG
+grid columns. It only selects and orders — no filtering, no differentiation.
+
+### The `emg_map` format
+
+Follows openhdemg's `custom_sorting_order`: a list of lists (or a 2-D array)
+where the **outer** index is the grid **column** and the **inner** index is the
+**row**, holding base-0 channel numbers, with `np.nan` at positions that carry
+no electrode or were excluded.
+
+```python
+emg_map = [[0, 1,  2,  3     ],   # col0
+           [4, 5,  6,  7     ],   # col1
+           [8, 9, 10, np.nan]]    # col2, one gap
+```
+
+### API Reference
+
+```python
+map_to_columns(emg_channels, emg_map)
+```
+
+- `emg_channels` — rows are channels, columns are samples. May hold more
+  channels than the map refers to (force and path references, for example).
+  `EMGFile.data` is samples-by-channels, so pass its transpose.
+- returns a list of `nCols` matrices, each `nRows x nSamples`, in map order.
+  A `NaN` map entry becomes an all-`NaN` row.
+
+Raises `ValueError` on a ragged map, an entry that is not a valid channel
+number, or a channel used more than once.
+
+```python
+emg_map_from_indices(emg_indices, rows, cols, order='column')
+```
+
+Builds a map from a `Grid`'s flat `emg_indices` plus `rows`/`cols`.
+`order='column'` (default) means the channels run **down** the first column
+before moving to the next — this matches MATLAB's `mat2grid`. `order='row'`
+transposes that.
+
+Grids with an unwired position — HD08MM1305 has 64 electrodes in 5x13 = 65
+positions — cannot be described this way and raise. Pass an explicit map with
+`NaN` at the empty position instead; openhdemg's `sort_rawemg` and
+hdsemg-select's electrode display grid both produce one.
+
+### Example Usage
+
+```python
+import numpy as np
+from hdsemg_shared.fileio.file_io import EMGFile
+from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices, map_to_columns
+from hdsemg_shared.preprocessing.differential import to_differential
+
+emg_file = EMGFile.load("recording.otb+")
+grid = emg_file.grids[0]
+
+emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
+columns = map_to_columns(emg_file.data.T, emg_map)
+
+dmat, dmat_no_filter = to_differential(columns, emg_file.sampling_frequency,
+                                       {"n": 2, "low": 20.0, "up": 450.0})
+```
+
+`hdsemg_shared.global_parameters.global_amplitude` takes the `emg_map` directly
+and does the mapping and the MP/SD/DD differentiation itself.
+
 ## Source Code
 
-> The implementation can be found in `src/hdsemg_shared/preprocessing/differential.py`. The code includes type hints and detailed docstrings for easy integration with development tools.
+> The implementations can be found in `src/hdsemg_shared/preprocessing/` — `differential.py` and `grid_map.py`. The code includes type hints and detailed docstrings for easy integration with development tools.
 
 ---
 
 ### API Documentation
 
-::: hdsemg_shared.preprocessing
+::: hdsemg_shared.preprocessing.differential
     handler: python
     options:
       heading_level: 3
       show_root_heading: false
+
+::: hdsemg_shared.preprocessing.grid_map
+    handler: python
+    options:
+      heading_level: 3

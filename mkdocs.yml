@@ -10,6 +10,7 @@ nav:
       - preprocessing: usage/preprocessing.md
       - global_parameters: usage/global_parameters.md
       - motor_unit: usage/motor_unit.md
+      - quality: usage/quality.md
   - Contributing: contributing.md
 
 plugins:
