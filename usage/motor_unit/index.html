@@ -854,13 +854,13 @@ base for use by :func:<code>plot_brace</code>.</p>
           <summary>Source code in <code>hdsemg_shared/motor_unit/brace_pic.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">BracePICCI</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Uncertainty summary attached to :class:`BracePICResult`.</span>
+<span class="w">    </span><span class="sd">"""Uncertainty summary attached to :class:`BracePICResult`.</span>
 
 <span class="sd">    ``draws`` stores one array per metric.  If ``store_trace_summary`` is true in</span>
 <span class="sd">    :class:`CIOptions`, ``trace_mean`` and ``trace_sd`` contain the mean and</span>
 <span class="sd">    standard deviation of the smoothed discharge-rate draws on the analysed time</span>
 <span class="sd">    base for use by :func:`plot_brace`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">level</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">method</span><span class="p">:</span> <span class="n">CIMethod</span>
@@ -876,7 +876,7 @@ base for use by :func:<code>plot_brace</code>.</p>
     <span class="n">options</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricInterval</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the interval summary for a metric name.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return the interval summary for a metric name."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">intervals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
 </code></pre></div>
         </details>
@@ -926,7 +926,7 @@ base for use by :func:<code>plot_brace</code>.</p>
         <details class="quote">
           <summary>Source code in <code>hdsemg_shared/motor_unit/brace_pic.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricInterval</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the interval summary for a metric name.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return the interval summary for a metric name."""</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">intervals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
 </code></pre></div>
         </details>
@@ -1007,7 +1007,7 @@ ci : BracePICCI or None
           <summary>Source code in <code>hdsemg_shared/motor_unit/brace_pic.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">BracePICResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Structured output of brace-method PIC quantification.</span>
+<span class="w">    </span><span class="sd">"""Structured output of brace-method PIC quantification.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -1048,7 +1048,7 @@ ci : BracePICCI or None
 <span class="sd">        Analysed time segment, if a time base or ``fsamp`` was supplied.</span>
 <span class="sd">    ci : BracePICCI or None</span>
 <span class="sd">        Optional uncertainty summary when ``ci`` was requested.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">brace_height</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">brace_height_norm</span><span class="p">:</span> <span class="nb">float</span>
@@ -1079,75 +1079,75 @@ ci : BracePICCI or None
     <span class="n">time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">original_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-    <span class="n">reference_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;%MVT&quot;</span>
-    <span class="n">discharge_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pps&quot;</span>
-    <span class="n">phase_fit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;endpoints&quot;</span>
-    <span class="n">distance_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;positive&quot;</span>
+    <span class="n">reference_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"%MVT"</span>
+    <span class="n">discharge_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"pps"</span>
+    <span class="n">phase_fit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"endpoints"</span>
+    <span class="n">distance_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"positive"</span>
     <span class="n">endpoint_windows</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">checks</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">ci</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BracePICCI</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">brace_height_percent_rtri</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normalized brace height in percent right-triangle height.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Normalized brace height in percent right-triangle height."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height_norm</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">acceleration_slope_pps_per_percent_mvt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Acceleration slope expressed in pps per %MVT.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Acceleration slope expressed in pps per %MVT."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">acceleration_slope</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">attenuation_slope_pps_per_percent_mvt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Attenuation slope expressed in pps per %MVT.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Attenuation slope expressed in pps per %MVT."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attenuation_slope</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">angle_deg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Brace angle in degrees.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Brace angle in degrees."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">angle</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">include_ci</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a flat dictionary suitable for a pandas row.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return a flat dictionary suitable for a pandas row."""</span>
         <span class="n">out</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;brace_height_norm&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height_norm</span><span class="p">,</span>
-            <span class="s2">&quot;brace_height&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height</span><span class="p">,</span>
-            <span class="s2">&quot;brace_distance&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_distance</span><span class="p">,</span>
-            <span class="s2">&quot;right_triangle_height&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_triangle_height</span><span class="p">,</span>
-            <span class="s2">&quot;acceleration_slope&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">acceleration_slope</span><span class="p">,</span>
-            <span class="s2">&quot;attenuation_slope&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">attenuation_slope</span><span class="p">,</span>
-            <span class="s2">&quot;angle&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">angle</span><span class="p">,</span>
-            <span class="s2">&quot;recruitment_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_idx</span><span class="p">,</span>
-            <span class="s2">&quot;brace_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_idx</span><span class="p">,</span>
-            <span class="s2">&quot;peak_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_idx</span><span class="p">,</span>
-            <span class="s2">&quot;peak_reference_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference_idx</span><span class="p">,</span>
-            <span class="s2">&quot;valid&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span><span class="p">,</span>
-            <span class="s2">&quot;exclusion_reasons&quot;</span><span class="p">:</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exclusion_reasons</span><span class="p">),</span>
-            <span class="s2">&quot;recruitment_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span>
-            <span class="s2">&quot;recruitment_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span>
-            <span class="s2">&quot;brace_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span>
-            <span class="s2">&quot;brace_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span>
-            <span class="s2">&quot;peak_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">,</span>
-            <span class="s2">&quot;peak_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">,</span>
-            <span class="s2">&quot;projection_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_reference</span><span class="p">,</span>
-            <span class="s2">&quot;projection_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_rate</span><span class="p">,</span>
-            <span class="s2">&quot;reference_unit&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference_unit</span><span class="p">,</span>
-            <span class="s2">&quot;discharge_unit&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">discharge_unit</span><span class="p">,</span>
-            <span class="s2">&quot;phase_fit&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_fit</span><span class="p">,</span>
-            <span class="s2">&quot;distance_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_mode</span><span class="p">,</span>
+            <span class="s2">"brace_height_norm"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height_norm</span><span class="p">,</span>
+            <span class="s2">"brace_height"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height</span><span class="p">,</span>
+            <span class="s2">"brace_distance"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_distance</span><span class="p">,</span>
+            <span class="s2">"right_triangle_height"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_triangle_height</span><span class="p">,</span>
+            <span class="s2">"acceleration_slope"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">acceleration_slope</span><span class="p">,</span>
+            <span class="s2">"attenuation_slope"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">attenuation_slope</span><span class="p">,</span>
+            <span class="s2">"angle"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">angle</span><span class="p">,</span>
+            <span class="s2">"recruitment_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_idx</span><span class="p">,</span>
+            <span class="s2">"brace_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_idx</span><span class="p">,</span>
+            <span class="s2">"peak_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_idx</span><span class="p">,</span>
+            <span class="s2">"peak_reference_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference_idx</span><span class="p">,</span>
+            <span class="s2">"valid"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span><span class="p">,</span>
+            <span class="s2">"exclusion_reasons"</span><span class="p">:</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exclusion_reasons</span><span class="p">),</span>
+            <span class="s2">"recruitment_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span>
+            <span class="s2">"recruitment_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span>
+            <span class="s2">"brace_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span>
+            <span class="s2">"brace_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span>
+            <span class="s2">"peak_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">,</span>
+            <span class="s2">"peak_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">,</span>
+            <span class="s2">"projection_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_reference</span><span class="p">,</span>
+            <span class="s2">"projection_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_rate</span><span class="p">,</span>
+            <span class="s2">"reference_unit"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference_unit</span><span class="p">,</span>
+            <span class="s2">"discharge_unit"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">discharge_unit</span><span class="p">,</span>
+            <span class="s2">"phase_fit"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_fit</span><span class="p">,</span>
+            <span class="s2">"distance_mode"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_mode</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="k">if</span> <span class="n">include_ci</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">interval</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">intervals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_lower&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">lower</span>
-                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_upper&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">upper</span>
-                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">mean</span>
-                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_sd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">sd</span>
-                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">n</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_method&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">method</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_interval&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_n_successful&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_successful</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_n_failed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_failed</span>
+                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_lower"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">lower</span>
+                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_upper"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">upper</span>
+                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_mean"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">mean</span>
+                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_sd"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">sd</span>
+                <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_n"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">n</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"ci_method"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">method</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"ci_interval"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"ci_level"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"ci_n_successful"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_successful</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"ci_n_failed"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_failed</span>
         <span class="k">return</span> <span class="n">out</span>
 </code></pre></div>
         </details>
@@ -1309,46 +1309,46 @@ ci : BracePICCI or None
         <details class="quote">
           <summary>Source code in <code>hdsemg_shared/motor_unit/brace_pic.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">include_ci</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a flat dictionary suitable for a pandas row.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return a flat dictionary suitable for a pandas row."""</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;brace_height_norm&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height_norm</span><span class="p">,</span>
-        <span class="s2">&quot;brace_height&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height</span><span class="p">,</span>
-        <span class="s2">&quot;brace_distance&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_distance</span><span class="p">,</span>
-        <span class="s2">&quot;right_triangle_height&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_triangle_height</span><span class="p">,</span>
-        <span class="s2">&quot;acceleration_slope&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">acceleration_slope</span><span class="p">,</span>
-        <span class="s2">&quot;attenuation_slope&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">attenuation_slope</span><span class="p">,</span>
-        <span class="s2">&quot;angle&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">angle</span><span class="p">,</span>
-        <span class="s2">&quot;recruitment_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_idx</span><span class="p">,</span>
-        <span class="s2">&quot;brace_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_idx</span><span class="p">,</span>
-        <span class="s2">&quot;peak_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_idx</span><span class="p">,</span>
-        <span class="s2">&quot;peak_reference_idx&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference_idx</span><span class="p">,</span>
-        <span class="s2">&quot;valid&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span><span class="p">,</span>
-        <span class="s2">&quot;exclusion_reasons&quot;</span><span class="p">:</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exclusion_reasons</span><span class="p">),</span>
-        <span class="s2">&quot;recruitment_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span>
-        <span class="s2">&quot;recruitment_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span>
-        <span class="s2">&quot;brace_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span>
-        <span class="s2">&quot;brace_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span>
-        <span class="s2">&quot;peak_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">,</span>
-        <span class="s2">&quot;peak_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">,</span>
-        <span class="s2">&quot;projection_reference&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_reference</span><span class="p">,</span>
-        <span class="s2">&quot;projection_rate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_rate</span><span class="p">,</span>
-        <span class="s2">&quot;reference_unit&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference_unit</span><span class="p">,</span>
-        <span class="s2">&quot;discharge_unit&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">discharge_unit</span><span class="p">,</span>
-        <span class="s2">&quot;phase_fit&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_fit</span><span class="p">,</span>
-        <span class="s2">&quot;distance_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_mode</span><span class="p">,</span>
+        <span class="s2">"brace_height_norm"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height_norm</span><span class="p">,</span>
+        <span class="s2">"brace_height"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_height</span><span class="p">,</span>
+        <span class="s2">"brace_distance"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_distance</span><span class="p">,</span>
+        <span class="s2">"right_triangle_height"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_triangle_height</span><span class="p">,</span>
+        <span class="s2">"acceleration_slope"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">acceleration_slope</span><span class="p">,</span>
+        <span class="s2">"attenuation_slope"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">attenuation_slope</span><span class="p">,</span>
+        <span class="s2">"angle"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">angle</span><span class="p">,</span>
+        <span class="s2">"recruitment_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_idx</span><span class="p">,</span>
+        <span class="s2">"brace_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_idx</span><span class="p">,</span>
+        <span class="s2">"peak_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_idx</span><span class="p">,</span>
+        <span class="s2">"peak_reference_idx"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference_idx</span><span class="p">,</span>
+        <span class="s2">"valid"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span><span class="p">,</span>
+        <span class="s2">"exclusion_reasons"</span><span class="p">:</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exclusion_reasons</span><span class="p">),</span>
+        <span class="s2">"recruitment_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span>
+        <span class="s2">"recruitment_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span>
+        <span class="s2">"brace_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span>
+        <span class="s2">"brace_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span>
+        <span class="s2">"peak_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">,</span>
+        <span class="s2">"peak_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">,</span>
+        <span class="s2">"projection_reference"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_reference</span><span class="p">,</span>
+        <span class="s2">"projection_rate"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_rate</span><span class="p">,</span>
+        <span class="s2">"reference_unit"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference_unit</span><span class="p">,</span>
+        <span class="s2">"discharge_unit"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">discharge_unit</span><span class="p">,</span>
+        <span class="s2">"phase_fit"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_fit</span><span class="p">,</span>
+        <span class="s2">"distance_mode"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_mode</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="k">if</span> <span class="n">include_ci</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">interval</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">intervals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_lower&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">lower</span>
-            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_upper&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">upper</span>
-            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">mean</span>
-            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_sd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">sd</span>
-            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">n</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_method&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">method</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_interval&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_n_successful&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_successful</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;ci_n_failed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_failed</span>
+            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_lower"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">_upper"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">upper</span>
+            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_mean"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">mean</span>
+            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_sd"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">sd</span>
+            <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_draw_n"</span><span class="p">]</span> <span class="o">=</span> <span class="n">interval</span><span class="o">.</span><span class="n">n</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"ci_method"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">method</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"ci_interval"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">interval</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"ci_level"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">level</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"ci_n_successful"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_successful</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"ci_n_failed"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">n_failed</span>
     <span class="k">return</span> <span class="n">out</span>
 </code></pre></div>
         </details>
@@ -1446,33 +1446,33 @@ store_trace_summary : bool
           <summary>Source code in <code>hdsemg_shared/motor_unit/brace_pic.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CIOptions</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for optional brace-metric uncertainty estimation.</span>
+<span class="w">    </span><span class="sd">"""Configuration for optional brace-metric uncertainty estimation.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    level : float</span>
 <span class="sd">        Interval mass in percent.  ``ci=95`` sets this to 95.</span>
-<span class="sd">    method : {&quot;jitter_svr&quot;, &quot;bootstrap_svr&quot;, &quot;trace_noise&quot;, &quot;sensitivity&quot;}</span>
-<span class="sd">        ``&quot;jitter_svr&quot;`` is the recommended experimental default.  It infers</span>
+<span class="sd">    method : {"jitter_svr", "bootstrap_svr", "trace_noise", "sensitivity"}</span>
+<span class="sd">        ``"jitter_svr"`` is the recommended experimental default.  It infers</span>
 <span class="sd">        latent discharge times from the smoothed pps trace, jitters them, refits</span>
 <span class="sd">        SVR discharge-rate smoothing, and recomputes brace metrics.</span>
-<span class="sd">        ``&quot;bootstrap_svr&quot;`` resamples the residuals of the IDR→SVR fit and</span>
+<span class="sd">        ``"bootstrap_svr"`` resamples the residuals of the IDR→SVR fit and</span>
 <span class="sd">        refits SVR with the same hyperparameters.  Requires</span>
 <span class="sd">        ``bootstrap_rate_times`` and ``bootstrap_rate_values``.  The draw mean</span>
 <span class="sd">        is approximately unbiased w.r.t. the deterministic estimate, unlike</span>
 <span class="sd">        jitter-SVR which systematically underestimates brace height.</span>
-<span class="sd">        ``&quot;trace_noise&quot;`` perturbs the smoothed trace directly and is faster but</span>
+<span class="sd">        ``"trace_noise"`` perturbs the smoothed trace directly and is faster but</span>
 <span class="sd">        less physiologically motivated.</span>
-<span class="sd">        ``&quot;sensitivity&quot;`` evaluates deterministic endpoint/smoothing choices and</span>
+<span class="sd">        ``"sensitivity"`` evaluates deterministic endpoint/smoothing choices and</span>
 <span class="sd">        reports their envelope as an interval-like summary.</span>
-<span class="sd">    interval : {&quot;hdi&quot;, &quot;eti&quot;}</span>
+<span class="sd">    interval : {"hdi", "eti"}</span>
 <span class="sd">        HDI gives the shortest interval containing the requested draw mass; ETI</span>
 <span class="sd">        gives equal-tailed quantiles.</span>
 <span class="sd">    n_draws : int</span>
 <span class="sd">        Number of posterior-predictive or perturbation draws.</span>
 <span class="sd">    n_jobs : int</span>
 <span class="sd">        Parallel workers.  ``1`` disables parallelism; ``-1`` uses all CPUs.</span>
-<span class="sd">    parallel_backend : {&quot;thread&quot;, &quot;process&quot;}</span>
+<span class="sd">    parallel_backend : {"thread", "process"}</span>
 <span class="sd">        Threading has lower overhead and avoids pickling issues with package</span>
 <span class="sd">        imports.  Process mode can help for very large draw counts.</span>
 <span class="sd">    random_state : int, optional</span>
@@ -1486,32 +1486,32 @@ store_trace_summary : bool
 <span class="sd">    min_isi_s : float</span>
 <span class="sd">        Lower bound for reconstructed ISIs after jittering.</span>
 <span class="sd">    trace_noise_sd : float, optional</span>
-<span class="sd">        Direct trace-noise SD for ``method=&quot;trace_noise&quot;``.  If omitted, a</span>
+<span class="sd">        Direct trace-noise SD for ``method="trace_noise"``.  If omitted, a</span>
 <span class="sd">        robust second-difference estimate is used.</span>
 <span class="sd">    svr_kwargs : dict</span>
 <span class="sd">        Keyword arguments passed to ``smooth_discharge_rate_svr`` during</span>
-<span class="sd">        ``method=&quot;jitter_svr&quot;`` and ``method=&quot;bootstrap_svr&quot;``.</span>
+<span class="sd">        ``method="jitter_svr"`` and ``method="bootstrap_svr"``.</span>
 <span class="sd">    bootstrap_rate_times : np.ndarray, optional</span>
 <span class="sd">        Times (s) of the raw instantaneous discharge-rate samples, required for</span>
-<span class="sd">        ``method=&quot;bootstrap_svr&quot;``.</span>
+<span class="sd">        ``method="bootstrap_svr"``.</span>
 <span class="sd">    bootstrap_rate_values : np.ndarray, optional</span>
 <span class="sd">        Raw IDR values (pps) at ``bootstrap_rate_times``, required for</span>
-<span class="sd">        ``method=&quot;bootstrap_svr&quot;``.</span>
+<span class="sd">        ``method="bootstrap_svr"``.</span>
 <span class="sd">    recruitment_windows, peak_windows, brace_windows : tuple[int, ...]</span>
 <span class="sd">        Deterministic averaging-window choices used by</span>
-<span class="sd">        ``method=&quot;sensitivity&quot;``.  Values are in samples on the analysed trace.</span>
+<span class="sd">        ``method="sensitivity"``.  Values are in samples on the analysed trace.</span>
 <span class="sd">    store_draws : bool</span>
 <span class="sd">        Keep scalar draw arrays in ``result.ci.draws``.</span>
 <span class="sd">    store_trace_summary : bool</span>
 <span class="sd">        Keep mean and SD of smoothed discharge-rate draws for plotting.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">95.0</span>
-    <span class="n">method</span><span class="p">:</span> <span class="n">CIMethod</span> <span class="o">=</span> <span class="s2">&quot;jitter_svr&quot;</span>
-    <span class="n">interval</span><span class="p">:</span> <span class="n">IntervalKind</span> <span class="o">=</span> <span class="s2">&quot;hdi&quot;</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">CIMethod</span> <span class="o">=</span> <span class="s2">"jitter_svr"</span>
+    <span class="n">interval</span><span class="p">:</span> <span class="n">IntervalKind</span> <span class="o">=</span> <span class="s2">"hdi"</span>
     <span class="n">n_draws</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span>
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">parallel_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;thread&quot;</span>
+    <span class="n">parallel_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"thread"</span>
     <span class="n">random_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">jitter_sd_s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">jitter_fraction_isi</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.10</span>
@@ -1519,10 +1519,10 @@ store_trace_summary : bool
     <span class="n">trace_noise_sd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">min_discharges</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_MIN_DISCHARGES</span>
     <span class="n">svr_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>
-        <span class="s2">&quot;epsilon&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
-        <span class="s2">&quot;gamma&quot;</span><span class="p">:</span> <span class="s2">&quot;scale&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;kernel&quot;</span><span class="p">:</span> <span class="s2">&quot;rbf&quot;</span><span class="p">,</span>
+        <span class="s2">"C"</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="s2">"epsilon"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="s2">"gamma"</span><span class="p">:</span> <span class="s2">"scale"</span><span class="p">,</span>
+        <span class="s2">"kernel"</span><span class="p">:</span> <span class="s2">"rbf"</span><span class="p">,</span>
     <span class="p">})</span>
     <span class="n">recruitment_windows</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">11</span><span class="p">)</span>
     <span class="n">peak_windows</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">11</span><span class="p">)</span>
@@ -1619,7 +1619,7 @@ n : int
           <summary>Source code in <code>hdsemg_shared/motor_unit/brace_pic.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MetricInterval</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;One uncertainty interval for one scalar brace metric.</span>
+<span class="w">    </span><span class="sd">"""One uncertainty interval for one scalar brace metric.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -1634,11 +1634,11 @@ n : int
 <span class="sd">        highest-density interval (HDI) or equal-tailed interval (ETI).</span>
 <span class="sd">    level : float</span>
 <span class="sd">        Requested interval mass in percent, e.g. 95.</span>
-<span class="sd">    interval : {&quot;hdi&quot;, &quot;eti&quot;}</span>
+<span class="sd">    interval : {"hdi", "eti"}</span>
 <span class="sd">        Interval construction method.</span>
 <span class="sd">    n : int</span>
 <span class="sd">        Number of finite draws used.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">point</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">mean</span><span class="p">:</span> <span class="nb">float</span>
@@ -1691,7 +1691,7 @@ n : int
 
 
 <h4 id="hdsemg_shared.motor_unit.brace_pic.brace_pic_from_spike_train" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">brace_pic_from_spike_train</span><span class="p">(</span><span class="n">spikes</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="n">fsamp</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">smoother</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ci_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">brace_kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">brace_pic_from_spike_train</span><span class="p">(</span><span class="n">spikes</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="n">fsamp</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">'auto'</span><span class="p">,</span> <span class="n">smoother</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ci_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">brace_kwargs</span><span class="p">)</span></code>
 
 
 </h4>
@@ -1731,7 +1731,7 @@ ci, ci_options
     <span class="n">reference</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">fsamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
     <span class="n">smoother</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">n_eval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">t_eval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1739,7 +1739,7 @@ ci, ci_options
     <span class="n">ci_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">CIOptions</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">**</span><span class="n">brace_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BracePICResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute brace metrics directly from a MU spike train.</span>
+<span class="w">    </span><span class="sd">"""Compute brace metrics directly from a MU spike train.</span>
 
 <span class="sd">    The function relies on the existing ``discharge_rate.py`` utilities in</span>
 <span class="sd">    ``hdsemg_shared.motor_unit``; those functions are intentionally not</span>
@@ -1753,7 +1753,7 @@ ci, ci_options
 <span class="sd">        Reference force/torque trace sampled at ``fsamp``.</span>
 <span class="sd">    fsamp : float</span>
 <span class="sd">        Sampling frequency in Hz.</span>
-<span class="sd">    kind : {&quot;auto&quot;, &quot;binary&quot;, &quot;indices&quot;}</span>
+<span class="sd">    kind : {"auto", "binary", "indices"}</span>
 <span class="sd">        Interpretation of ``spikes``.</span>
 <span class="sd">    smoother : callable, optional</span>
 <span class="sd">        Custom smoother ``smoother(times, rate, t_eval) -&gt; (t_eval, smooth)``.</span>
@@ -1767,7 +1767,7 @@ ci, ci_options
 <span class="sd">        Forwarded to :func:`compute_brace_pic`.</span>
 <span class="sd">    **brace_kwargs</span>
 <span class="sd">        Additional arguments forwarded to :func:`compute_brace_pic`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">.discharge_rate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">firing_times_from_binary</span><span class="p">,</span>
         <span class="n">firing_times_from_indices</span><span class="p">,</span>
@@ -1778,21 +1778,21 @@ ci, ci_options
     <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
     <span class="n">reference</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">reference</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;reference must be a 1D array.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"reference must be a 1D array."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">fsamp</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fsamp must be positive.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"fsamp must be positive."</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
         <span class="n">unique</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
         <span class="n">is_binary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">unique</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span> <span class="ow">and</span> <span class="n">spikes</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">reference</span><span class="o">.</span><span class="n">size</span>
-        <span class="n">kind</span> <span class="o">=</span> <span class="s2">&quot;binary&quot;</span> <span class="k">if</span> <span class="n">is_binary</span> <span class="k">else</span> <span class="s2">&quot;indices&quot;</span>
+        <span class="n">kind</span> <span class="o">=</span> <span class="s2">"binary"</span> <span class="k">if</span> <span class="n">is_binary</span> <span class="k">else</span> <span class="s2">"indices"</span>
 
-    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;binary&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"binary"</span><span class="p">:</span>
         <span class="n">firing_times</span> <span class="o">=</span> <span class="n">firing_times_from_binary</span><span class="p">(</span><span class="n">spikes</span><span class="p">,</span> <span class="n">fsamp</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;indices&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"indices"</span><span class="p">:</span>
         <span class="n">firing_times</span> <span class="o">=</span> <span class="n">firing_times_from_indices</span><span class="p">(</span><span class="n">spikes</span><span class="p">,</span> <span class="n">fsamp</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;kind must be one of {&#39;auto&#39;, &#39;binary&#39;, &#39;indices&#39;}.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"kind must be one of {'auto', 'binary', 'indices'}."</span><span class="p">)</span>
 
     <span class="n">rate_times</span><span class="p">,</span> <span class="n">rate</span> <span class="o">=</span> <span class="n">instantaneous_discharge_rate</span><span class="p">(</span><span class="n">firing_times</span><span class="p">)</span>
 
@@ -1832,7 +1832,7 @@ ci, ci_options
 
 
 <h4 id="hdsemg_shared.motor_unit.brace_pic.compute_brace_pic" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">compute_brace_pic</span><span class="p">(</span><span class="n">discharge_rate</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">recruitment_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">peak_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">peak_reference_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fsamp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference_unit</span><span class="o">=</span><span class="s1">&#39;%MVT&#39;</span><span class="p">,</span> <span class="n">discharge_unit</span><span class="o">=</span><span class="s1">&#39;pps&#39;</span><span class="p">,</span> <span class="n">distance_mode</span><span class="o">=</span><span class="s1">&#39;positive&#39;</span><span class="p">,</span> <span class="n">phase_fit</span><span class="o">=</span><span class="s1">&#39;endpoints&#39;</span><span class="p">,</span> <span class="n">recruitment_window</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">peak_window</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">brace_window</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">peak_torque_tolerance_s</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">ci</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ci_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_interval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_interval_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_n_draws</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_n_jobs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">compute_brace_pic</span><span class="p">(</span><span class="n">discharge_rate</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">recruitment_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">peak_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">peak_reference_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fsamp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference_unit</span><span class="o">=</span><span class="s1">'%MVT'</span><span class="p">,</span> <span class="n">discharge_unit</span><span class="o">=</span><span class="s1">'pps'</span><span class="p">,</span> <span class="n">distance_mode</span><span class="o">=</span><span class="s1">'positive'</span><span class="p">,</span> <span class="n">phase_fit</span><span class="o">=</span><span class="s1">'endpoints'</span><span class="p">,</span> <span class="n">recruitment_window</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">peak_window</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">brace_window</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">peak_torque_tolerance_s</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">ci</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ci_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_interval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_interval_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_n_draws</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_n_jobs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 
 </h4>
@@ -1923,10 +1923,10 @@ ci_random_state, random_state : optional
     <span class="n">peak_reference_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">fsamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">reference_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;%MVT&quot;</span><span class="p">,</span>
-    <span class="n">discharge_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pps&quot;</span><span class="p">,</span>
-    <span class="n">distance_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;positive&quot;</span><span class="p">,</span>
-    <span class="n">phase_fit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;endpoints&quot;</span><span class="p">,</span>
+    <span class="n">reference_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"%MVT"</span><span class="p">,</span>
+    <span class="n">discharge_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"pps"</span><span class="p">,</span>
+    <span class="n">distance_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"positive"</span><span class="p">,</span>
+    <span class="n">phase_fit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"endpoints"</span><span class="p">,</span>
     <span class="n">recruitment_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">peak_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">brace_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
@@ -1941,12 +1941,12 @@ ci_random_state, random_state : optional
     <span class="n">ci_random_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">random_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BracePICResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute brace-method PIC metrics for one smoothed MU discharge trace.</span>
+<span class="w">    </span><span class="sd">"""Compute brace-method PIC metrics for one smoothed MU discharge trace.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    discharge_rate : np.ndarray</span>
-<span class="sd">        Smoothed continuous discharge-rate trace in pps.  NaNs outside the MU&#39;s</span>
+<span class="sd">        Smoothed continuous discharge-rate trace in pps.  NaNs outside the MU's</span>
 <span class="sd">        active period are allowed and are ignored when no explicit indices are</span>
 <span class="sd">        supplied.</span>
 <span class="sd">    reference : np.ndarray</span>
@@ -1960,19 +1960,19 @@ ci_random_state, random_state : optional
 <span class="sd">    time : np.ndarray, optional</span>
 <span class="sd">        Explicit time axis in seconds.  If omitted and ``fsamp`` is supplied,</span>
 <span class="sd">        ``np.arange(n) / fsamp`` is used.</span>
-<span class="sd">    distance_mode : {&quot;positive&quot;, &quot;absolute&quot;}</span>
-<span class="sd">        ``&quot;positive&quot;`` selects the largest above-line deviation, which is the</span>
-<span class="sd">        PIC-amplification interpretation.  ``&quot;absolute&quot;`` selects the largest</span>
+<span class="sd">    distance_mode : {"positive", "absolute"}</span>
+<span class="sd">        ``"positive"`` selects the largest above-line deviation, which is the</span>
+<span class="sd">        PIC-amplification interpretation.  ``"absolute"`` selects the largest</span>
 <span class="sd">        magnitude deviation and can flag below-line curvature as a brace.</span>
-<span class="sd">    phase_fit : {&quot;endpoints&quot;, &quot;ols&quot;}</span>
-<span class="sd">        ``&quot;endpoints&quot;`` uses chords recruitment-&gt;brace and brace-&gt;peak.</span>
-<span class="sd">        ``&quot;ols&quot;`` fits least-squares lines to the two phases, including the</span>
+<span class="sd">    phase_fit : {"endpoints", "ols"}</span>
+<span class="sd">        ``"endpoints"`` uses chords recruitment-&gt;brace and brace-&gt;peak.</span>
+<span class="sd">        ``"ols"`` fits least-squares lines to the two phases, including the</span>
 <span class="sd">        brace sample in both phases.</span>
 <span class="sd">    recruitment_window, peak_window, brace_window : int</span>
 <span class="sd">        Optional local averaging windows in samples for endpoint/brace points.</span>
 <span class="sd">        Defaults to 1 sample, matching direct geometric quantification.</span>
 <span class="sd">    peak_torque_tolerance_s : float</span>
-<span class="sd">        Optional tolerance for the &quot;peak discharge after peak torque&quot; check.</span>
+<span class="sd">        Optional tolerance for the "peak discharge after peak torque" check.</span>
 <span class="sd">        The paper criterion is strict; default is 0.</span>
 <span class="sd">    ci : bool or float</span>
 <span class="sd">        ``False`` disables uncertainty estimation.  ``True`` requests the</span>
@@ -2017,7 +2017,7 @@ ci_random_state, random_state : optional
 <span class="sd">            draws are available, the scalar metric fields above are draw means;</span>
 <span class="sd">            the deterministic geometry points and indices still describe the</span>
 <span class="sd">            original input trace used to generate the draw set.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">_compute_brace_pic_core</span><span class="p">(</span>
         <span class="n">discharge_rate</span><span class="o">=</span><span class="n">discharge_rate</span><span class="p">,</span>
         <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span>
@@ -2054,14 +2054,14 @@ ci_random_state, random_state : optional
             <span class="n">fsamp</span><span class="o">=</span><span class="n">fsamp</span><span class="p">,</span>
             <span class="n">opts</span><span class="o">=</span><span class="n">opts</span><span class="p">,</span>
             <span class="n">core_kwargs</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;reference_unit&quot;</span><span class="p">:</span> <span class="n">reference_unit</span><span class="p">,</span>
-                <span class="s2">&quot;discharge_unit&quot;</span><span class="p">:</span> <span class="n">discharge_unit</span><span class="p">,</span>
-                <span class="s2">&quot;distance_mode&quot;</span><span class="p">:</span> <span class="n">distance_mode</span><span class="p">,</span>
-                <span class="s2">&quot;phase_fit&quot;</span><span class="p">:</span> <span class="n">phase_fit</span><span class="p">,</span>
-                <span class="s2">&quot;recruitment_window&quot;</span><span class="p">:</span> <span class="n">recruitment_window</span><span class="p">,</span>
-                <span class="s2">&quot;peak_window&quot;</span><span class="p">:</span> <span class="n">peak_window</span><span class="p">,</span>
-                <span class="s2">&quot;brace_window&quot;</span><span class="p">:</span> <span class="n">brace_window</span><span class="p">,</span>
-                <span class="s2">&quot;peak_torque_tolerance_s&quot;</span><span class="p">:</span> <span class="n">peak_torque_tolerance_s</span><span class="p">,</span>
+                <span class="s2">"reference_unit"</span><span class="p">:</span> <span class="n">reference_unit</span><span class="p">,</span>
+                <span class="s2">"discharge_unit"</span><span class="p">:</span> <span class="n">discharge_unit</span><span class="p">,</span>
+                <span class="s2">"distance_mode"</span><span class="p">:</span> <span class="n">distance_mode</span><span class="p">,</span>
+                <span class="s2">"phase_fit"</span><span class="p">:</span> <span class="n">phase_fit</span><span class="p">,</span>
+                <span class="s2">"recruitment_window"</span><span class="p">:</span> <span class="n">recruitment_window</span><span class="p">,</span>
+                <span class="s2">"peak_window"</span><span class="p">:</span> <span class="n">peak_window</span><span class="p">,</span>
+                <span class="s2">"brace_window"</span><span class="p">:</span> <span class="n">brace_window</span><span class="p">,</span>
+                <span class="s2">"peak_torque_tolerance_s"</span><span class="p">:</span> <span class="n">peak_torque_tolerance_s</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
         <span class="n">_apply_ci_point_estimates</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
@@ -2117,7 +2117,7 @@ results : list[BracePICResult]
     <span class="n">ci_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">CIOptions</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">**</span><span class="n">brace_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">BracePICResult</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute brace-method PIC metrics for all MUs in an ``openhdemg`` object.</span>
+<span class="w">    </span><span class="sd">"""Compute brace-method PIC metrics for all MUs in an ``openhdemg`` object.</span>
 
 <span class="sd">    If ``smoothfits`` is supplied, it is used directly and no SVR smoothing is</span>
 <span class="sd">    performed.  This supports validation against externally smoothed traces such</span>
@@ -2141,16 +2141,16 @@ results : list[BracePICResult]
 <span class="sd">        One row per MU.</span>
 <span class="sd">    results : list[BracePICResult]</span>
 <span class="sd">        Structured per-MU results.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 
-    <span class="n">fsamp</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">emgfile</span><span class="p">[</span><span class="s2">&quot;FSAMP&quot;</span><span class="p">])</span>
+    <span class="n">fsamp</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">emgfile</span><span class="p">[</span><span class="s2">"FSAMP"</span><span class="p">])</span>
     <span class="n">ref</span> <span class="o">=</span> <span class="n">_reference_array_from_openhdemg</span><span class="p">(</span><span class="n">emgfile</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">smoothfits</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">openhdemg.library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">emg</span>
         <span class="n">svrfits</span> <span class="o">=</span> <span class="n">emg</span><span class="o">.</span><span class="n">compute_svr</span><span class="p">(</span><span class="n">emgfile</span><span class="p">)</span>
-        <span class="n">smoothfits</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">svrfits</span><span class="p">[</span><span class="s2">&quot;gensvr&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+        <span class="n">smoothfits</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">svrfits</span><span class="p">[</span><span class="s2">"gensvr"</span><span class="p">])</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
 
     <span class="n">smooth_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">smoothfits</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">smooth_arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -2159,8 +2159,8 @@ results : list[BracePICResult]
         <span class="n">smooth_arr</span> <span class="o">=</span> <span class="n">smooth_arr</span><span class="o">.</span><span class="n">T</span>
     <span class="k">if</span> <span class="n">smooth_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">ref</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;smoothfits must have </span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> rows to match REF_SIGNAL; &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;got shape </span><span class="si">{</span><span class="n">smooth_arr</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s2">"smoothfits must have </span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> rows to match REF_SIGNAL; "</span>
+            <span class="sa">f</span><span class="s2">"got shape </span><span class="si">{</span><span class="n">smooth_arr</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">."</span>
         <span class="p">)</span>
 
     <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BracePICResult</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2176,10 +2176,10 @@ results : list[BracePICResult]
                 <span class="o">**</span><span class="n">brace_kwargs</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">row</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
-            <span class="n">row</span><span class="p">[</span><span class="s2">&quot;mu&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mu</span>
+            <span class="n">row</span><span class="p">[</span><span class="s2">"mu"</span><span class="p">]</span> <span class="o">=</span> <span class="n">mu</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="n">res</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">row</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mu&quot;</span><span class="p">:</span> <span class="n">mu</span><span class="p">,</span> <span class="s2">&quot;valid&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)}</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"mu"</span><span class="p">:</span> <span class="n">mu</span><span class="p">,</span> <span class="s2">"valid"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)}</span>
         <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
         <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
 
@@ -2197,7 +2197,7 @@ results : list[BracePICResult]
 
 
 <h4 id="hdsemg_shared.motor_unit.brace_pic.plot_brace" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">plot_brace</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_ci</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ci_shadow</span><span class="o">=</span><span class="s1">&#39;sd&#39;</span><span class="p">,</span> <span class="n">ci_metric_label</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_points</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_scale_bars</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">scale_reference</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">scale_discharge</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">equal_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trace_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">plot_brace</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_ci</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ci_shadow</span><span class="o">=</span><span class="s1">'sd'</span><span class="p">,</span> <span class="n">ci_metric_label</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_points</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_scale_bars</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">scale_reference</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">scale_discharge</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">equal_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trace_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ci_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 
 </h4>
@@ -2232,7 +2232,7 @@ equal_scale : bool
     <span class="o">*</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">show_ci</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">ci_shadow</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sd&quot;</span><span class="p">,</span>
+    <span class="n">ci_shadow</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"sd"</span><span class="p">,</span>
     <span class="n">ci_metric_label</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">show_points</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">show_scale_bars</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -2243,7 +2243,7 @@ equal_scale : bool
     <span class="n">trace_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">ci_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot brace geometry with optional CI mean and SD/interval shadow.</span>
+<span class="w">    </span><span class="sd">"""Plot brace geometry with optional CI mean and SD/interval shadow.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -2254,8 +2254,8 @@ equal_scale : bool
 <span class="sd">    show_ci : bool</span>
 <span class="sd">        If true and ``result.ci`` has a trace summary, plot the CI draw mean and</span>
 <span class="sd">        uncertainty shadow.</span>
-<span class="sd">    ci_shadow : {&quot;sd&quot;, &quot;interval&quot;}</span>
-<span class="sd">        ``&quot;sd&quot;`` plots mean ± one SD.  ``&quot;interval&quot;`` uses the pointwise draw</span>
+<span class="sd">    ci_shadow : {"sd", "interval"}</span>
+<span class="sd">        ``"sd"`` plots mean ± one SD.  ``"interval"`` uses the pointwise draw</span>
 <span class="sd">        interval when draw traces are available; if unavailable, it falls back to</span>
 <span class="sd">        SD.</span>
 <span class="sd">    show_scale_bars : bool</span>
@@ -2265,13 +2265,13 @@ equal_scale : bool
 <span class="sd">    equal_scale : bool</span>
 <span class="sd">        Set ``ax.set_aspect(scale_reference / scale_discharge)``.  Disabled by</span>
 <span class="sd">        default so matplotlib can fill the plot area with normal autoscaling.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
     <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 
-    <span class="n">trace_style</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;linewidth&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;smoothed discharge&quot;</span><span class="p">}</span>
+    <span class="n">trace_style</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"linewidth"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">:</span> <span class="s2">"smoothed discharge"</span><span class="p">}</span>
     <span class="k">if</span> <span class="n">trace_kwargs</span><span class="p">:</span>
         <span class="n">trace_style</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">trace_kwargs</span><span class="p">)</span>
 
@@ -2279,14 +2279,14 @@ equal_scale : bool
     <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">show_ci</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">ci</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">trace_reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">ci_style</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;alpha&quot;</span><span class="p">:</span> <span class="mf">0.18</span><span class="p">,</span> <span class="s2">&quot;linewidth&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;CI draw SD&quot;</span><span class="p">}</span>
+        <span class="n">ci_style</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"alpha"</span><span class="p">:</span> <span class="mf">0.18</span><span class="p">,</span> <span class="s2">"linewidth"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">:</span> <span class="s2">"CI draw SD"</span><span class="p">}</span>
         <span class="k">if</span> <span class="n">ci_kwargs</span><span class="p">:</span>
             <span class="n">ci_style</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">ci_kwargs</span><span class="p">)</span>
         <span class="n">xr</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">trace_reference</span>
         <span class="n">ym</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">trace_mean</span>
         <span class="n">ys</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ci</span><span class="o">.</span><span class="n">trace_sd</span>
         <span class="k">if</span> <span class="n">ym</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ys</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">ym</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;CI draw mean&quot;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">ym</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"CI draw mean"</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">ym</span> <span class="o">-</span> <span class="n">ys</span><span class="p">,</span> <span class="n">ym</span> <span class="o">+</span> <span class="n">ys</span><span class="p">,</span> <span class="o">**</span><span class="n">ci_style</span><span class="p">)</span>
 
     <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">trace_style</span><span class="p">)</span>
@@ -2297,46 +2297,46 @@ equal_scale : bool
     <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">],</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">],</span>
-        <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span>
+        <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span>
         <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;recruitment-peak line&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="s2">"recruitment-peak line"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">],</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">],</span>
         <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
-        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;acceleration&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="s2">"acceleration"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">],</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">],</span>
         <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
-        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;attenuation&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="s2">"attenuation"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">projection_reference</span><span class="p">],</span>
         <span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">projection_rate</span><span class="p">],</span>
         <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
-        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;brace height&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="s2">"brace height"</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">show_points</span><span class="p">:</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span> <span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span> <span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">,</span> <span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">recruitment_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">recruitment_rate</span><span class="p">,</span> <span class="s2">"o"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">brace_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">brace_rate</span><span class="p">,</span> <span class="s2">"o"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">peak_reference</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">peak_rate</span><span class="p">,</span> <span class="s2">"o"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">ci_metric_label</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">ci</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">label</span> <span class="o">=</span> <span class="n">_format_ci_label</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.98</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">&quot;top&quot;</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
-                <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;boxstyle&quot;</span><span class="p">:</span> <span class="s2">&quot;round&quot;</span><span class="p">,</span> <span class="s2">&quot;alpha&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">})</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.98</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"top"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"boxstyle"</span><span class="p">:</span> <span class="s2">"round"</span><span class="p">,</span> <span class="s2">"alpha"</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">})</span>
 
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reference (</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">reference_unit</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Discharge rate (</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">discharge_unit</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Reference (</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">reference_unit</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Discharge rate (</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">discharge_unit</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">equal_scale</span><span class="p">:</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">scale_reference</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale_discharge</span><span class="p">),</span> <span class="n">adjustable</span><span class="o">=</span><span class="s2">&quot;datalim&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">scale_reference</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale_discharge</span><span class="p">),</span> <span class="n">adjustable</span><span class="o">=</span><span class="s2">"datalim"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">show_scale_bars</span><span class="p">:</span>
         <span class="n">_add_scale_bars</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">scale_reference</span><span class="p">,</span> <span class="n">scale_discharge</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">reference_unit</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">discharge_unit</span><span class="p">)</span>
@@ -2436,7 +2436,7 @@ fsamp : float
         <details class="quote">
           <summary>Source code in <code>hdsemg_shared/motor_unit/discharge_rate.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">firing_times_from_binary</span><span class="p">(</span><span class="n">spike_train</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fsamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Convert a binary spike train into discharge times in seconds.</span>
 
 <span class="sd">    Parameters</span>
@@ -2455,12 +2455,12 @@ fsamp : float
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If ``spike_train`` is not one-dimensional or ``fsamp`` is not positive.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">spike_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">spike_train</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">spike_train</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;spike_train must be a 1D array.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"spike_train must be a 1D array."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">fsamp</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fsamp must be a positive number.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"fsamp must be a positive number."</span><span class="p">)</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">spike_train</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">indices</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">fsamp</span><span class="p">)</span>
 </code></pre></div>
@@ -2499,7 +2499,7 @@ fsamp : float
         <details class="quote">
           <summary>Source code in <code>hdsemg_shared/motor_unit/discharge_rate.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">firing_times_from_indices</span><span class="p">(</span><span class="n">indices</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fsamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Convert discharge sample indices into discharge times in seconds.</span>
 
 <span class="sd">    Parameters</span>
@@ -2518,12 +2518,12 @@ fsamp : float
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If ``indices`` is not one-dimensional or ``fsamp`` is not positive.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">indices</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;indices must be a 1D array.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"indices must be a 1D array."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">fsamp</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fsamp must be a positive number.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"fsamp must be a positive number."</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">indices</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">fsamp</span><span class="p">)</span>
 </code></pre></div>
         </details>
@@ -2572,7 +2572,7 @@ rate : np.ndarray
     <span class="n">firing_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">min_discharges</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">MIN_DISCHARGES</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the instantaneous discharge rate from discharge times.</span>
 
 <span class="sd">    The instantaneous discharge rate is the reciprocal of the inter-spike</span>
@@ -2600,19 +2600,19 @@ rate : np.ndarray
 <span class="sd">    ValueError</span>
 <span class="sd">        If ``firing_times`` is not one-dimensional, has fewer than</span>
 <span class="sd">        ``min_discharges`` entries, or contains non-increasing times (ISI &lt;= 0).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">firing_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">firing_times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">firing_times</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;firing_times must be a 1D array.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"firing_times must be a 1D array."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">firing_times</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="n">min_discharges</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;MU has </span><span class="si">{</span><span class="n">firing_times</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> discharges, fewer than the required &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;minimum of </span><span class="si">{</span><span class="n">min_discharges</span><span class="si">}</span><span class="s2">; excluded from analysis.&quot;</span>
+            <span class="sa">f</span><span class="s2">"MU has </span><span class="si">{</span><span class="n">firing_times</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> discharges, fewer than the required "</span>
+            <span class="sa">f</span><span class="s2">"minimum of </span><span class="si">{</span><span class="n">min_discharges</span><span class="si">}</span><span class="s2">; excluded from analysis."</span>
         <span class="p">)</span>
     <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">firing_times</span><span class="p">)</span>
     <span class="n">isi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">isi</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Discharge times must be strictly increasing (ISI &gt; 0).&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Discharge times must be strictly increasing (ISI &gt; 0)."</span><span class="p">)</span>
     <span class="n">rate</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">isi</span>
     <span class="k">return</span> <span class="n">times</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">rate</span>
 </code></pre></div>
@@ -2628,7 +2628,7 @@ rate : np.ndarray
 
 
 <h4 id="hdsemg_shared.motor_unit.discharge_rate.smooth_discharge_rate_svr" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">smooth_discharge_rate_svr</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">rate</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">C</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="s1">&#39;scale&#39;</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="s1">&#39;rbf&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">svr_kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">smooth_discharge_rate_svr</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">rate</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">C</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="s1">'scale'</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="s1">'rbf'</span><span class="p">,</span> <span class="o">**</span><span class="n">svr_kwargs</span><span class="p">)</span></code>
 
 
 </h4>
@@ -2674,11 +2674,11 @@ ValueError
     <span class="o">*</span><span class="p">,</span>
     <span class="n">C</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
     <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
-    <span class="n">gamma</span><span class="o">=</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span>
-    <span class="n">kernel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rbf&quot;</span><span class="p">,</span>
+    <span class="n">gamma</span><span class="o">=</span><span class="s2">"scale"</span><span class="p">,</span>
+    <span class="n">kernel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"rbf"</span><span class="p">,</span>
     <span class="o">**</span><span class="n">svr_kwargs</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Smooth an instantaneous discharge-rate trace with Support Vector Regression.</span>
 
 <span class="sd">    This reproduces the smoothing step of Beauchamp et al. (2023), who trained an</span>
@@ -2715,20 +2715,20 @@ ValueError
 <span class="sd">        If scikit-learn is not installed.</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If ``times`` and ``rate`` have mismatched shapes.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.svm</span><span class="w"> </span><span class="kn">import</span> <span class="n">SVR</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - exercised only without sklearn</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="s2">&quot;smooth_discharge_rate_svr requires scikit-learn. &quot;</span>
-            <span class="s2">&quot;Install it with `pip install scikit-learn`, or supply your own &quot;</span>
-            <span class="s2">&quot;pre-smoothed discharge-rate trace to the brace-height functions.&quot;</span>
+            <span class="s2">"smooth_discharge_rate_svr requires scikit-learn. "</span>
+            <span class="s2">"Install it with `pip install scikit-learn`, or supply your own "</span>
+            <span class="s2">"pre-smoothed discharge-rate trace to the brace-height functions."</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
     <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="n">rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rate</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">times</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">rate</span><span class="o">.</span><span class="n">shape</span> <span class="ow">or</span> <span class="n">times</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;times and rate must be 1D arrays of equal length.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"times and rate must be 1D arrays of equal length."</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">t_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">times</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mi">200</span><span class="p">)</span>
