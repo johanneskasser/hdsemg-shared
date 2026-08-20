@@ -1,7 +1,8 @@
 """
-The integration examples from docs/usage/global_parameters.md, executed.
+The integration examples from docs/usage/global_parameters.md and
+docs/usage/quality.md, executed.
 
-Each helper below is copied verbatim from that page. If one has to change
+Each helper below is copied verbatim from those pages. If one has to change
 here, change it there too -- these tests exist so the documented recipes
 cannot rot silently.
 """
@@ -278,3 +279,122 @@ def test_the_gr08mm1305_gap_is_a_physical_corner_at_every_orientation(orientatio
     col, row = gaps[0]
     assert col in (0, emg_map.shape[0] - 1)          # first or last column
     assert row in (0, emg_map.shape[1] - 1)          # first or last row
+
+
+# --------------------------------------------------------------------------
+# From docs/usage/quality.md
+# --------------------------------------------------------------------------
+
+def _quality_grid(n_cols=4, n_rows=12, cv_ms=4.0, seed=3):
+    """
+    A 4 x 12 grid carrying a travelling wave, as the quality page assumes.
+
+    Each electrode gets its own gain, spread about 15 %, because a grid whose
+    channels are all EXACTLY equally strong has a near-zero MAD and then
+    robust_z magnifies noise into 4-sigma outliers. Real grids vary by tens
+    of per cent, and the documented threshold of 3.5 is meant for those.
+    """
+    from scipy.signal import butter, filtfilt
+
+    rng = np.random.default_rng(seed)
+    b, a = butter(2, [20 / (FS / 2), 200 / (FS / 2)], btype="band")
+    source = filtfilt(b, a, rng.standard_normal(N_SAMPLES)) * 50.0
+    emg_map = np.arange(n_cols * n_rows, dtype=float).reshape(n_cols, n_rows)
+    step = int(round((10.0 * 1e-3) / cv_ms * FS))
+    mat = np.empty((n_cols * n_rows, N_SAMPLES))
+    for col in range(n_cols):
+        for row in range(n_rows):
+            gain = float(np.exp(0.15 * rng.standard_normal()))
+            mat[int(emg_map[col, row])] = gain * (
+                np.roll(source, row * step) + rng.standard_normal(N_SAMPLES) * 2.0
+            )
+    return mat, emg_map
+
+
+def test_quality_page_finds_the_channels_that_carry_no_signal():
+    from hdsemg_shared.quality import flat_channels
+
+    mat, _ = _quality_grid()
+    mat[7] = 0.0
+
+    dead = flat_channels(mat)      # the page's recipe, on emg.data.T
+    assert dead == [7]
+
+
+def test_quality_page_scores_a_channel_against_its_own_grid():
+    from hdsemg_shared.quality import channel_amplitude, robust_z
+
+    mat, _ = _quality_grid()
+    mat[5] *= 8.0
+
+    amp = channel_amplitude(mat, FS)
+    outliers = np.flatnonzero(np.abs(robust_z(amp.rms)) > 3.5)
+
+    assert outliers.tolist() == [5]
+
+
+def test_quality_page_line_noise_clean_reading_and_harmonics():
+    from hdsemg_shared.quality import line_noise_ratio
+
+    mat, _ = _quality_grid()
+    t = np.arange(N_SAMPLES) / FS
+    mat[2] = mat[2] + 30.0 * np.sin(2 * np.pi * 150.0 * t)
+
+    noise = line_noise_ratio(mat, FS, freqs=(50.0, 100.0, 150.0))
+
+    assert noise.per_frequency.shape == (3, mat.shape[0])
+    assert noise.ratio[2] > 20.0
+    # "a clean channel reads about 1.4" -- the page's headline number
+    clean = np.delete(noise.ratio, 2)
+    assert 0.3 < np.median(clean) < 4.0
+
+
+def test_quality_page_neighbour_correlation_takes_a_window():
+    from hdsemg_shared.quality import neighbor_correlation
+
+    mat, emg_map = _quality_grid()
+    peak_window = slice(0, N_SAMPLES // 2)
+
+    r = neighbor_correlation(mat, emg_map, FS, window=peak_window)
+
+    assert r.shape == (mat.shape[0],)
+    assert np.nanmin(r) > 0.5      # every channel shares its wave with a neighbour
+
+
+def test_quality_page_propagation_and_the_orientation_check():
+    from hdsemg_shared.quality import propagation
+
+    mat, emg_map = _quality_grid(cv_ms=4.0)
+    peak_window = slice(0, N_SAMPLES // 2)
+
+    prop = propagation(mat, emg_map, ied_mm=10.0, fs=FS, window=peak_window)
+
+    assert prop.cv_status == "ok"
+    assert 3.0 < prop.cv_reported_ms < 5.0
+    # with no innervation zone the reported velocity IS the whole-grid one
+    assert prop.cv_reported_ms == prop.conduction_velocity_ms
+    assert prop.propagation_score > 0.9
+
+    # the page's orientation recipe
+    axis_disagreement_deg = min(abs(prop.fiber_angle_deg),
+                                180 - abs(prop.fiber_angle_deg))
+    trustworthy = prop.propagation_score > 0.5
+
+    assert trustworthy
+    assert axis_disagreement_deg < 10.0      # the wave does run down the columns
+
+
+def test_quality_page_status_is_nan_guarded():
+    """The page promises a not-estimable status is handed NaN, never a number."""
+    from hdsemg_shared.quality import propagation
+
+    rng = np.random.default_rng(11)
+    one = 50.0 * rng.standard_normal(N_SAMPLES)
+    mat = np.vstack([one] * 48)                  # identical channels, zero delay
+    emg_map = np.arange(48, dtype=float).reshape(4, 12)
+
+    prop = propagation(mat, emg_map, ied_mm=10.0, fs=FS)
+
+    assert prop.cv_status in ("out_of_range", "too_few_pairs")
+    assert np.isnan(prop.conduction_velocity_ms)
+    assert np.isnan(prop.cv_reported_ms)
