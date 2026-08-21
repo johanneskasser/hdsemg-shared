@@ -6,8 +6,11 @@ import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
+
+from .units import normalize_unit
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -35,6 +38,9 @@ def load_otb4_file(file_path):
             - sampling_frequency (float): Sampling frequency of the signals.
             - file_name (str): Name of the OTB4 file.
             - file_size (int): Size of the OTB4 file in bytes.
+            - unit (str | None): Unit of the EMG grid channels, as declared by
+              the tracks' <UnitOfMeasurement>. None when the grid tracks
+              disagree or declare nothing recognizable.
 
     Raises:
         ValueError: If the OTB4 file format is unrecognized or if no track info is found.
@@ -108,6 +114,9 @@ def load_otb4_file(file_path):
         gi = tr["GridInfo"]
         logger.debug(f"  {tr['Device']} - {tr['SubTitle']}: {gi['Name']} ({gi['NRow']}x{gi['NColumn']}, IED={gi['IED']}mm)")
 
+    unit = emg_unit_from_tracks(track_info_list)
+    logger.debug(f"OTB4 EMG unit: {unit}")
+
     if device == "Novecento+":
         logger.debug("Using Novecento+ reader")
         data, descriptions, fs_main = read_novecento_plus(signals, track_info_list, trapezoidal_tracks, tmpdir)
@@ -138,10 +147,51 @@ def load_otb4_file(file_path):
     else:
         raise ValueError(f"Could not align data ({data.shape}) with time ({time.shape})")
 
-    return data, time, description_array, sampling_frequency, file_name, file_size
+    return data, time, description_array, sampling_frequency, file_name, file_size, unit
 
 
 MODEL_CODE_RE = re.compile(r"^(HD|GR)\d{2}MM\d{4}$")
+
+
+def is_emg_grid_track(track: dict) -> bool:
+    """
+    True for tracks carrying real EMG grid channels.
+
+    Mirrors the filter the readers apply: control tracks and the pseudo-grids
+    OTB4 emits for IMU/quaternion/aux data (IED=1 with at most 4 electrodes)
+    are not EMG.
+    """
+    if track.get("IsControl", False):
+        return False
+    grid_info = track.get("GridInfo")
+    if not grid_info:
+        return False
+    electrodes = grid_info.get("NRow", 1) * grid_info.get("NColumn", 1)
+    return grid_info.get("IED", 1) > 1 or electrodes > 4
+
+
+def emg_unit_from_tracks(track_info_list: list) -> Optional[str]:
+    """
+    Unit shared by every EMG grid track, or None when they disagree.
+
+    Scoped to the EMG grids on purpose: AUX, force and control tracks in the
+    same file declare their own units (V, A.U.), so no single unit describes
+    every column of the returned data.
+    """
+    units = {
+        normalize_unit(tr.get("UnitOfMeasurement"))
+        for tr in track_info_list
+        if is_emg_grid_track(tr)
+    }
+    units.discard(None)
+    if len(units) == 1:
+        return units.pop()
+    if units:
+        logger.warning(
+            "OTB4 EMG grid tracks declare conflicting units %s; reporting None.",
+            sorted(units),
+        )
+    return None
 
 
 def grid_pattern_from_info(grid_info):
@@ -222,6 +272,7 @@ def parse_otb4_tracks_xml(xml_file):
         is_control_str = _get_text_save(tr_el, "IsControl", default="false", do_strip= True)
         chan_offset_str = _get_text_save(tr_el, "ChannelOffsetInSubPacket", default="0", do_strip= False)
         muscle_str = _get_text_save(tr_el, "Muscle", default="", do_strip= True)
+        unit_str = _get_text_save(tr_el, "UnitOfMeasurement", default="", do_strip=True)
 
         # Konvertierungen
         gain_val = float(gain_str)
@@ -274,6 +325,7 @@ def parse_otb4_tracks_xml(xml_file):
             "SignalStreamPath": path_str,
             "NumberOfChannels": nchan_val,
             "AcquisitionChannel": acq_val,
+            "UnitOfMeasurement": unit_str,  # e.g. "mV", "V", "A.U."
             "SubTitle": subtitle_str,  # Grid identifier
             "GridInfo": grid_info,     # Grid metadata
             "IsControl": is_control_val,  # Whether this is a control/reference signal

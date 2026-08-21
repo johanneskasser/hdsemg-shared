@@ -9,6 +9,7 @@ from .matlab_file_io import MatFileIO
 from .otb_plus_file_io import load_otb_file
 from .otb_4_file_io import load_otb4_file
 from .edf_file_io import load_edf_file
+from .units import conversion_factor, normalize_unit
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -62,7 +63,8 @@ class EMGFile:
     )
     _grid_cache: list[dict] | None = None
 
-    def __init__(self, data, time, description, sf, file_name, file_size, file_type):
+    def __init__(self, data, time, description, sf, file_name, file_size, file_type,
+                 unit: Optional[str] = None):
         self.data = data
         self.time = time
         self.description = description
@@ -70,6 +72,10 @@ class EMGFile:
         self.file_name = file_name
         self.file_size = file_size
         self.file_type = file_type
+        #: Unit of the EMG channels, one of :data:`~hdsemg_shared.fileio.units.CANONICAL_UNITS`,
+        #: or ``None`` when the file does not declare one. Reference/auxiliary
+        #: channels (force, paths, AUX) are NOT in this unit — see :meth:`to_unit`.
+        self.unit = normalize_unit(unit)
         self.channel_count = data.shape[1] if data.ndim > 1 else 1
 
         # parse out grids *once* on demand
@@ -94,13 +100,16 @@ class EMGFile:
         else:
             raise ValueError(f"Unsupported file type: {suffix!r}")
 
-        data, time, desc, sf, fn, fs = raw
+        # Loaders append the declared unit; tolerate the older 6-tuple so a
+        # third-party loader or a monkeypatched one keeps working.
+        data, time, desc, sf, fn, fs, *extra = raw
+        unit = extra[0] if extra else None
 
         if data.dtype == np.int16:
             data = data.astype(np.float32)
 
         data, time = cls._sanitize(data, time)
-        return cls(data, time, desc, sf, fn, fs, file_type)
+        return cls(data, time, desc, sf, fn, fs, file_type, unit)
 
     @staticmethod
     def _sanitize(data: np.ndarray, time: np.ndarray):
@@ -277,7 +286,8 @@ class EMGFile:
 
     def save(self, save_path: str) -> None:
         if save_path.endswith(".mat"):
-            MatFileIO.save(save_path, self.data, self.time, self.description, self.sampling_frequency)
+            MatFileIO.save(save_path, self.data, self.time, self.description,
+                           self.sampling_frequency, self.unit)
         else:
             file_format = save_path.split('.')[-1].lower()
             raise ValueError(f"Unsupported save format: {file_format!r}")
@@ -407,6 +417,45 @@ class EMGFile:
             Lower-case extensions including the leading dot.
         """
         return [".mat", ".otb", ".otb+", ".otb4", ".edf"]
+
+    def scale_to(self, unit: str) -> float:
+        """
+        Factor that converts this file's EMG channels into ``unit``.
+
+        Raises ``ValueError`` when :attr:`unit` is ``None`` (the file declared
+        nothing) or when either unit is not convertible, e.g. ``"a.u."``.
+
+        Example::
+
+            emg.data[:, grid.emg_indices] * emg.scale_to("uV")
+        """
+        return conversion_factor(self.unit, unit)
+
+    def to_unit(self, unit: str) -> "EMGFile":
+        """
+        Return a copy whose EMG channels are expressed in ``unit``.
+
+        Only the grid EMG channels are scaled. Reference and auxiliary channels
+        (force, requested/performed path, AUX) carry their own units and are
+        left untouched. When no grids could be parsed, every channel is scaled,
+        since there is nothing to distinguish EMG from the rest.
+        """
+        factor = self.scale_to(unit)
+        data = self.data.astype(np.float64)          # always a fresh array
+        emg_indices = sorted({i for g in self.grids for i in g.emg_indices})
+        if emg_indices:
+            data[:, emg_indices] *= factor
+        else:
+            logger.warning(
+                "No grids parsed for %s; scaling every channel to %s.",
+                self.file_name, unit,
+            )
+            data *= factor
+
+        out = self.copy()
+        out.data = data
+        out.unit = unit
+        return out
 
     def copy(self):
         """

@@ -46,9 +46,37 @@ emg.description        # list or array of channel‐description strings
 emg.sampling_frequency # float
 emg.file_name          # str
 emg.file_size          # int (bytes)
-emg.file_type          # "mat" | "otb" | "otb4"
+emg.file_type          # "mat" | "otb" | "otb4" | "edf"
 emg.channel_count      # int, number of channels (= data.shape[1])
+emg.unit               # "V" | "mV" | "uV" | "a.u." | None – unit of the EMG channels
 ```
+
+#### Signal Unit
+
+`emg.unit` says what the **EMG grid channels** are measured in, taken from what
+the file declares — never guessed from the magnitude of the data. It is `None`
+when the format declares nothing, which is deliberate: an unknown unit is
+recoverable, a wrong default is not.
+
+Reference and auxiliary channels (force, requested/performed path, AUX) are
+**not** in this unit — they carry their own scales.
+
+| Format | Source of the unit | Typical result |
+|---|---|---|
+| `.otb4` | `<UnitOfMeasurement>` of each EMG grid track | `"mV"` |
+| `.otb+` / `.otb` | Fixed by the loader's scaling (ADC counts → volts × 1000) | `"mV"` |
+| `.mat` | Optional `Unit` variable, written by `EMGFile.save` | `None` for plain MATLAB exports |
+| `.edf` | Physical dimension in the EDF header | `"uV"`, or `None` when blank |
+
+When the EMG tracks/signals of one file disagree on a unit, `unit` is `None`
+and a warning is logged.
+
+```python
+emg.scale_to("uV")     # factor, e.g. 1000.0; raises ValueError when unit is None
+uv = emg.to_unit("uV") # a converted copy – EMG channels only, refs untouched
+```
+
+`to_unit` never modifies the original. `"a.u."` is never convertible.
 
 #### Grid Metadata
 
@@ -106,11 +134,17 @@ from hdsemg_shared.fileio.matlab_file_io import MatFileIO
 ```
 
 * **`MatFileIO.load(file_path: str) -> tuple`**
-  Loads a `.mat` and returns exactly
-  `(data, time, description, sampling_frequency, file_name, file_size)`.
+  Loads a `.mat` and returns
+  `(data, time, description, sampling_frequency, file_name, file_size, unit)`.
 
-* **`MatFileIO.save(save_path: str, data, time, description, sampling_frequency)`**
-  Saves the provided arrays/metadata to a `.mat` file.
+* **`MatFileIO.save(save_path: str, data, time, description, sampling_frequency, unit=None)`**
+  Saves the provided arrays/metadata to a `.mat` file. `unit` is written only
+  when it is not `None`, so a round-trip preserves it without inventing one.
+
+!!! note "Loader return tuple"
+    All four loaders now return the declared unit as a seventh element.
+    `EMGFile.load` also accepts the older six-element form, in which case
+    `emg.unit` is `None`.
 
 ---
 

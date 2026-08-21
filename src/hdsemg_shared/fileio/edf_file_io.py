@@ -8,6 +8,8 @@ from typing import Optional
 
 import numpy as np
 
+from .units import normalize_unit
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -33,6 +35,9 @@ def load_edf_file(edf_path: str):
     sampling_frequency : float
     file_name : str
     file_size : int – bytes
+    unit : str | None – physical dimension declared in the EDF header, shared
+        by all data signals; None when the header leaves it blank or the
+        signals disagree.
     """
     edf_path = Path(edf_path)
     file_name = edf_path.name
@@ -60,11 +65,37 @@ def load_edf_file(edf_path: str):
     n_data_channels = header["n_signals"] - len(annotation_indices)
     description = _build_descriptions(n_data_channels, sidecar, channels_tsv_path)
 
+    unit = _header_unit(header, annotation_indices)
+
     logger.info(
-        "EDF loaded: %s | channels=%d | samples=%d | sf=%.1f Hz",
-        file_name, data.shape[0], data.shape[1], sf,
+        "EDF loaded: %s | channels=%d | samples=%d | sf=%.1f Hz | unit=%s",
+        file_name, data.shape[0], data.shape[1], sf, unit,
     )
-    return data, time, description, sf, file_name, file_size
+    return data, time, description, sf, file_name, file_size, unit
+
+
+def _header_unit(header: dict, annotation_indices: set) -> Optional[str]:
+    """
+    Physical dimension shared by every non-annotation signal.
+
+    EDF declares it per signal; returns None when it is blank (common in
+    synthetic exports) or when the signals disagree, since no single unit
+    then describes the data.
+    """
+    units = {
+        normalize_unit(dim)
+        for i, dim in enumerate(header["phys_dims"])
+        if i not in annotation_indices
+    }
+    units.discard(None)
+    if len(units) == 1:
+        return units.pop()
+    if units:
+        logger.warning(
+            "EDF signals declare conflicting units %s; reporting None.",
+            sorted(units),
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +172,7 @@ def _parse_edf_header(raw: bytes) -> dict:
         "phys_maxs":       phys_maxs,
         "dig_mins":        dig_mins,
         "dig_maxs":        dig_maxs,
+        "phys_dims":       phys_dims,
         "sf":              sf,
     }
 
