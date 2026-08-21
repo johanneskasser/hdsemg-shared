@@ -193,16 +193,23 @@ class PropagationResult(NamedTuple):
                                that side cannot carry MIN_VALID_PAIRS [m/s]
     cv_reported_ms        ... THE velocity to use: cv_side_ms when an
                                innervation zone splits the grid, otherwise
-                               conduction_velocity_ms. Reading this instead
-                               of picking between the two by hand is what
-                               keeps a whole-grid number, averaged across an
-                               end-plate region, out of a result [m/s]
+                               conduction_velocity_ms, and NaN when an
+                               innervation zone splits the grid but neither
+                               side can carry MIN_VALID_PAIRS. Reading this
+                               instead of picking between the two by hand is
+                               what keeps a whole-grid number, averaged
+                               across an end-plate region, out of a result.
+                               NaN here means no velocity was measurable,
+                               NOT that the grid is bad - the amplitude is
+                               unaffected by an innervation zone [m/s]
     cv_status             ... char, one of:
                                x "ok"            - one propagation direction
                                   across the whole grid
                                x "iz_split"      - an innervation zone
-                                  splits the grid; the velocity still holds,
-                                  see cv_side_ms
+                                  splits the grid; a velocity holds only on
+                                  one side of it, see cv_side_ms, and none
+                                  is reported when neither side is long
+                                  enough
                                x "too_few_pairs" - fewer than
                                   MIN_VALID_PAIRS bin pairs existed at all
                                x "out_of_range"  - bin pairs existed but not
@@ -371,8 +378,17 @@ def propagation(emg_channels, emg_map, ied_mm, fs, angles = None, bpf = None,
     r_squared = _anchor_regression_r2(best_angle, mono, ied_m, fs)
 
     # A velocity is only defined where the potentials travel one way, so an
-    # innervation zone makes the ONE-SIDED estimate the reported one
-    cv_reported = cv_side if (cv_status == "iz_split" and cv_side is not None) else cv
+    # innervation zone makes the ONE-SIDED estimate the reported one. Where
+    # neither side carries MIN_VALID_PAIRS there is no such estimate, and the
+    # whole-grid median must NOT stand in for it: it averages over pairs on
+    # both sides of the end plate, where the potentials travel in opposite
+    # directions, so it is not the velocity of anything. It also lands inside
+    # the physiological band often enough to pass for a measurement, which is
+    # exactly why the field has to be cleared rather than left to the reader
+    if cv_status == "iz_split":
+        cv_reported = cv_side if cv_side is not None else np.nan
+    else:
+        cv_reported = cv
 
     return PropagationResult(
         fiber_angle_deg=best_angle,

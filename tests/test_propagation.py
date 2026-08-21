@@ -145,6 +145,27 @@ def test_a_grid_without_an_innervation_zone_reports_no_side_velocity():
     assert result.cv_side_ms is None
 
 
+def test_an_unusable_innervation_zone_split_reports_no_velocity_at_all():
+    """
+    A short grid split by an innervation zone leaves too few pairs on either
+    side, and then the whole-grid median must NOT be handed over as the
+    result: it averages pairs on both sides of the end plate, where the
+    potentials travel in opposite directions.
+
+    The danger is that the whole-grid figure looks entirely respectable -
+    here it is ~4 m/s, mid-physiological - so nothing about the number
+    itself would tell a reader it is meaningless.
+    """
+    mat, emg_map = travelling_grid(n_rows=8, iz_row=3, cv_ms=4.0)
+    result = propagation(mat, emg_map, IED_MM, FS)
+
+    assert result.cv_status == "iz_split"
+    assert result.cv_side_ms is None
+    assert np.isnan(result.cv_reported_ms)
+    # the whole-grid value is still exposed, and still plausible-looking
+    assert 3.0 <= result.conduction_velocity_ms <= 5.5
+
+
 # ---------------------------------------------------------------------------
 # the degenerate cases, which must be named rather than guessed at
 # ---------------------------------------------------------------------------

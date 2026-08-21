@@ -9,7 +9,11 @@ QUALITY: measures that say whether a recording is fit to analyse
                          share anything with the electrodes next to it
     propagation     ... one answer per GRID - along which direction the
                          action potentials travel, how fast, and whether an
-                         innervation zone sits underneath
+                         innervation zone sits underneath, read from DELAYS
+    amplitude_map   ... the same grid laid out in SPACE - how strong each
+                         position is, and where the end plate is, read from
+                         AMPLITUDES. An independent check on propagation's
+                         innervation zone, and what a heat map is drawn from
 
   NOTHING HERE RETURNS A VERDICT. Every function returns a measured number,
   and where the threshold sits is the caller's decision: it depends on the
@@ -27,6 +31,15 @@ QUALITY: measures that say whether a recording is fit to analyse
   (c) H Penasso. Written for hdsemg-shared by Claude Opus 5, 2026-08-19.
 """
 
+from hdsemg_shared.quality.amplitude_map import (
+    AmplitudeMap,
+    DEFAULT_UPSAMPLE_MM,
+    InnervationZone,
+    amplitude_map,
+    barycenter,
+    innervation_zone_line,
+    upsample_map,
+)
 from hdsemg_shared.quality.channel_metrics import (
     DEFAULT_BPF,
     DEFAULT_PAD_S,
@@ -52,6 +65,13 @@ from hdsemg_shared.quality.propagation import (
 )
 
 __all__ = [
+    "AmplitudeMap",
+    "DEFAULT_UPSAMPLE_MM",
+    "InnervationZone",
+    "amplitude_map",
+    "barycenter",
+    "innervation_zone_line",
+    "upsample_map",
     "DEFAULT_BPF",
     "DEFAULT_PAD_S",
     "ChannelAmplitude",
