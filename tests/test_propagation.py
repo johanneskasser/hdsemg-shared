@@ -128,7 +128,19 @@ def test_innervation_zone_does_not_destroy_the_direction_or_the_velocity():
     assert result.fiber_angle_deg == pytest.approx(0.0, abs=5.0)
     assert result.conduction_velocity_ms == pytest.approx(effective_cv(4.0), rel=0.05)
     assert result.propagation_score > 0.9      # the criterion that is used
-    assert result.r_squared < 0.7              # the criterion that would fail
+
+    # The criterion that would fail. The margin is narrower than it looks
+    # like it should be, and for a reason worth knowing: the anchor
+    # regression drops pairs whose implied velocity is unphysiological, and
+    # the pairs that STRADDLE an innervation zone are exactly those - their
+    # delays partly cancel, so they imply a very high velocity. Tightening
+    # MAX_CV_MS from 10 to 7 m/s therefore filters out much of what used to
+    # collapse this R^2. It still separates - a clean grid returns 1.000
+    # against 0.69-0.89 here - but it is no longer the dramatic collapse the
+    # module docstring describes from the 10 m/s era.
+    assert result.r_squared < 0.95
+    clean = propagation(*travelling_grid(n_rows=12, cv_ms=4.0), IED_MM, FS)
+    assert clean.r_squared > result.r_squared + 0.05
 
 
 def test_innervation_zone_reports_a_matching_one_sided_velocity():
@@ -257,3 +269,78 @@ def test_a_map_naming_a_missing_channel_is_rejected():
     emg_map[0, 0] = 9999.0
     with pytest.raises(ValueError, match="emg_map refers to channels"):
         propagation(mat, emg_map, IED_MM, FS)
+
+
+# ---------------------------------------------------------------------------
+# the double differential
+# ---------------------------------------------------------------------------
+
+def test_the_double_differential_recovers_the_planted_velocity():
+    """DD differences once more than SD, so it loses a bin, but the velocity
+    it measures is the same one."""
+    mat, emg_map = travelling_grid(n_rows=14, cv_ms=4.0)
+    sd = propagation(mat, emg_map, IED_MM, FS, derivation="SD")
+    dd = propagation(mat, emg_map, IED_MM, FS, derivation="DD")
+
+    assert dd.cv_reported_ms == pytest.approx(effective_cv(4.0), rel=0.05)
+    assert dd.fiber_angle_deg == pytest.approx(0.0, abs=5.0)
+    assert dd.n_valid_pairs == sd.n_valid_pairs - 1
+
+
+def test_the_double_differential_suppresses_a_common_component():
+    """
+    The reason it is worth having. A component every electrode sees at once
+    does not travel, and it is what inflates a single-differential velocity.
+    Adding one must disturb DD LESS than it disturbs SD.
+    """
+    rng = np.random.default_rng(7)
+    mat, emg_map = travelling_grid(n_rows=14, cv_ms=4.0)
+    common = _source(rng, scale=400.0)              # far larger than the signal
+    contaminated = mat + common
+
+    truth = effective_cv(4.0)
+    sd_error = abs(propagation(contaminated, emg_map, IED_MM, FS,
+                               derivation="SD").cv_reported_ms - truth)
+    dd_error = abs(propagation(contaminated, emg_map, IED_MM, FS,
+                               derivation="DD").cv_reported_ms - truth)
+
+    assert dd_error <= sd_error
+
+
+def test_an_unknown_derivation_is_named_not_guessed():
+    mat, emg_map = travelling_grid()
+    with pytest.raises(ValueError, match="'MP', 'SD' or 'DD'"):
+        propagation(mat, emg_map, IED_MM, FS, derivation="XX")
+
+
+# ---------------------------------------------------------------------------
+# the physiological window
+# ---------------------------------------------------------------------------
+
+def test_the_physiological_window_is_two_to_seven():
+    """
+    The range H Penasso gives for an AVERAGE fibre conduction velocity, and
+    the one the reference MATLAB implementation bounds its own search at
+    (ML_CV_MulitCol's localac: CVmin = 2, CVmax = 7).
+    """
+    assert (MIN_CV_MS, MAX_CV_MS) == (2.0, 7.0)
+
+
+def test_a_velocity_above_the_ceiling_is_dropped_not_reported():
+    """
+    A wave travelling far too fast for a muscle fibre must leave NO velocity
+    behind, rather than one clipped to the ceiling. At 9 m/s every pair along
+    the true direction is outside the window, so nothing survives.
+
+    Asked ALONG THE PLANTED AXIS, deliberately. Turned loose, the free search
+    answers -75 deg with a plausible 2.5 m/s: an oblique direction projects
+    the electrodes onto a shorter spacing, which turns an impossible velocity
+    into a possible one. That is the lattice artefact the module docstring
+    warns about, and it is worth knowing that the physiological window does
+    NOT protect against it - only fixing the axis does.
+    """
+    mat, emg_map = travelling_grid(n_rows=12, cv_ms=9.0, noise=0.5)
+    result = propagation(mat, emg_map, IED_MM, FS, angles=[0.0])
+
+    assert result.cv_status in ("out_of_range", "too_few_pairs")
+    assert np.isnan(result.cv_reported_ms)

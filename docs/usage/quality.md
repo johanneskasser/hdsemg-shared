@@ -332,20 +332,32 @@ the same question differently, and on real data they disagree — measured acros
 | estimator | median of pairwise delays | one delay fitted jointly over all channels, Newton |
 | innervation zone | handled, one side used | must be **absent** — the caller selects it away |
 
-**The derivation accounts for the level.** Holding everything else fixed and
-differencing twice instead of once moves the median from 5.31 m/s to 3.87
-against MATLAB's 4.05 — a bias of −0.23 m/s where the single differential gave
-+0.98. A double differential is a spatial high-pass: it suppresses the
-non-propagating component every electrode shares, which is what inflates a
-single-differential velocity.
+**The derivation accounts for the level**, and `derivation='DD'` now exists:
+
+```python
+propagation(emg.T, emg_map, ied_mm, fs, derivation="DD")
+```
+
+Over 116 epochs of the reference recording, against MATLAB's 4.05 m/s median:
+
+| | median | bias | epochs yielding a velocity |
+|---|---|---|---|
+| `derivation="SD"` | 5.10 m/s | +0.96 | 29 |
+| `derivation="DD"` | **4.19 m/s** | **−0.20** | 15 |
+
+A double differential is a sharper spatial high-pass, so less of the
+non-propagating component every electrode shares survives to inflate the
+velocity. It costs a bin and a good deal of signal-to-noise, which is why it
+yields a velocity on roughly half as many epochs.
 
 What it does **not** fix is epoch-to-epoch agreement, which stays near zero
-correlation. That is the channel selection and the estimator form, not the
-derivation.
+correlation. That is the channel selection and the estimator form.
 
-`propagation` does not currently offer `derivation='DD'`. Until it does, do not
-treat its velocity as comparable with a MATLAB DD figure, and do not mix the
-two within a study.
+!!! tip "Use DD for the velocity, SD for the direction"
+    The muEccCon gate does exactly this: the fibre direction and the
+    propagation score come from SD, where the signal-to-noise is better, and
+    the reported velocity from a DD measurement restricted to the direction
+    already found — one extra angle, not another 181.
 
 !!! warning "The interpolation kernel is not a free choice"
     `upsample_map` uses **Keys cubic convolution** (a = −0.5), the kernel

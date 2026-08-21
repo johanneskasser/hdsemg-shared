@@ -47,7 +47,7 @@ grid
     actually differences along, the monopolar adjacent-bin delays were
       [1.0, 0.5, 0.0, -0.5, -0.5, -0.5, -0.5] ms
     i.e. at or below one sample at 2 kHz, giving velocities pinned to the
-    10 m/s ceiling and a propagation score of 0. The SINGLE DIFFERENTIAL
+    MAX_CV_MS ceiling and a propagation score of 0. The SINGLE DIFFERENTIAL
     between the same bins gave
       [1.5, 1.0, -1.5, -1.0, -2.0, -2.0] ms
     - four to five times larger, physiological (2.5-6.7 m/s over 10 mm), and
@@ -119,7 +119,12 @@ grid
       anchor-first regression R^2, for the reason set out above. That
       regression is still computed and reported as r_squared, because a low
       value next to a high propagation_score is itself the signature of an
-      innervation zone
+      innervation zone. That signature WEAKENED when MAX_CV_MS came down to
+      7 m/s: the regression drops pairs whose implied velocity is
+      unphysiological, and pairs straddling an end plate are exactly those,
+      so much of what used to collapse the R^2 is now filtered out first. On
+      a planted innervation zone it reads 0.69-0.89 against a clean grid's
+      1.000 - still a separation, no longer a collapse
     x it band-passes before cross-correlating by default; select correlates
       the raw monopolar signal. Pass bpf = False for the original behaviour
     x it correlates the SINGLE DIFFERENTIAL between adjacent bins rather
@@ -151,11 +156,19 @@ from hdsemg_shared.quality.channel_metrics import (
     _merged_bpf,
 )
 
-#: Physiological bounds on muscle fibre conduction velocity. A bin pair whose
-#: implied velocity falls outside them carries no propagation and is dropped.
-#: Typical human range is 3-5 m/s; these are deliberately wider.
+#: Physiological bounds on AVERAGE muscle fibre conduction velocity. A bin
+#: pair whose implied velocity falls outside them carries no propagation and
+#: is dropped.
+#:
+#: 2 to 7 m/s, per H Penasso, 2026-08-21. The reference MATLAB implementation
+#: independently uses the same pair - ML_CV_MulitCol's localac sets CVmin = 2,
+#: CVmax = 7 - so the two pipelines now bound the same interval.
+#:
+#: The ceiling was 10.0 until 2026-08-21, which is not a velocity a fibre
+#: reaches: it let a delay of one sample or less at 2 kHz pass as a
+#: measurement rather than being rejected as the noise it is.
 MIN_CV_MS = 2.0
-MAX_CV_MS = 10.0
+MAX_CV_MS = 7.0
 
 #: Fewer surviving bin pairs than this and neither the direction nor the
 #: velocity means anything.
@@ -286,12 +299,25 @@ def propagation(emg_channels, emg_map, ied_mm, fs, angles = None, bpf = None,
                           is mostly rest []
         pad_s        ... reflection padding before filtering, default
                           0.25 [s]
-        derivation   ... char, 'SD' (default) cross-correlates the SINGLE
-                          DIFFERENTIAL between adjacent bins, 'MP' the
-                          monopolar bin signals themselves as hdsemg-select
-                          does. *KEEP THE DEFAULT* unless reproducing that
-                          behaviour - see WHY THE DELAYS ARE MEASURED ON THE
-                          SINGLE DIFFERENTIAL in the module docstring []
+        derivation   ... char, one of:
+                           x 'SD' (default) - cross-correlates the SINGLE
+                              DIFFERENTIAL between adjacent bins
+                           x 'DD' - the DOUBLE differential, a sharper
+                              spatial high-pass. This is what the reference
+                              MATLAB implementation estimates on, and it
+                              reports a SLOWER velocity than 'SD' on the same
+                              data because less of the non-propagating common
+                              component survives to inflate it: over 116
+                              epochs of one recording the median went 5.31 ->
+                              3.87 m/s against MATLAB's 4.05. It costs one
+                              bin and some signal-to-noise, so fewer epochs
+                              yield a velocity at all
+                           x 'MP' - the monopolar bin signals themselves, as
+                              hdsemg-select does. *NOT USABLE* for velocity,
+                              see WHY THE DELAYS ARE MEASURED ON THE SINGLE
+                              DIFFERENTIAL in the module docstring
+                          'SD' and 'DD' are both defensible and they do NOT
+                          agree; pick one per study and say which []
 
       OUTPUT
         prop         ... PropagationResult, see its own docstring. Read
@@ -437,7 +463,7 @@ def differential_map(emg_channels, emg_map, ied_mm, fs, angle_deg, bpf = None,
 
       OPTIONAL INPUT
         bpf / window / pad_s ... as propagation []
-        derivation   ... 'SD' (default) or 'MP' []
+        derivation   ... 'SD' (default), 'DD' or 'MP', see propagation []
 
       OUTPUT
         positions    ... where each row sits along the direction [m]
@@ -514,6 +540,12 @@ def _binned_signals(theta_deg, mono, ied_m, derivation):
     hdsemg-select. With derivation='SD' each bin signal is then replaced by
     its difference with the next one, which is what removes the common mode,
     see the module docstring.
+
+    'DD' differences once more. A double differential is a sharper spatial
+    high-pass, so it suppresses more of the component every electrode sees at
+    once - the same component that inflates a single-differential velocity -
+    at the cost of one more bin and a poorer signal-to-noise ratio on each.
+    It is what the reference MATLAB implementation estimates velocity on.
     """
     bins = {}
     for (col, row), signal in mono.items():
@@ -525,11 +557,20 @@ def _binned_signals(theta_deg, mono, ied_m, derivation):
 
     if derivation == 'MP':
         return averaged
-    if derivation != 'SD':
-        raise ValueError(f"derivation must be 'SD' or 'MP', got {derivation!r}.")
+    if derivation not in ('SD', 'DD'):
+        raise ValueError(
+            f"derivation must be 'MP', 'SD' or 'DD', got {derivation!r}.")
 
+    differenced = [((p_i + p_j) / 2.0, sig_j - sig_i)
+                   for (p_i, sig_i), (p_j, sig_j) in zip(averaged, averaged[1:])]
+    if derivation == 'SD':
+        return differenced
+
+    # Differencing the SD bins again puts each DD back ON a bin position
+    # rather than between two, which is why the positions come out whole
+    # rather than halved a second time
     return [((p_i + p_j) / 2.0, sig_j - sig_i)
-            for (p_i, sig_i), (p_j, sig_j) in zip(averaged, averaged[1:])]
+            for (p_i, sig_i), (p_j, sig_j) in zip(differenced, differenced[1:])]
 
 
 def _binned_adjacent_delays(theta_deg, mono, ied_m, fs, derivation = 'SD'):
