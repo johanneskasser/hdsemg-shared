@@ -2,10 +2,11 @@
 
 The **`hdsemg_shared.fileio`** module provides a interface to:
 
-* Load HD-sEMG data from MATLAB (`.mat`), OTB+ (`.otb+`, `.otb`) or OTB4 (`.otb4`) files
+* Load HD-sEMG data from MATLAB (`.mat`), OTB+ (`.otb+`, `.otb`), OTB4 (`.otb4`) or EDF (`.edf`) files
 * Support for **Novecento+** device files with multi-track recordings and control signals
 * Automatically sanitize and reshape the data/time arrays
 * Extract electrode‐grid metadata (rows, columns, IED, reference channels, etc.)
+* Report the signal unit each file declares, instead of leaving consumers to guess
 * Cache remote grid‐configuration JSON for one week
 * Save back to `.mat` if needed
 
@@ -24,6 +25,7 @@ A single class that bundles:
 * Raw data & time vectors
 * Channel descriptions
 * Sampling frequency, file name, file size, file type
+* The declared signal unit via `.unit`
 * Electrode‐grid metadata via the `.grids` property
 
 #### Loading
@@ -35,7 +37,8 @@ emg = EMGFile.load("session1.mat")
 * **`load(filepath: str) -> EMGFile`**
   Detects the extension and dispatches to the appropriate loader
   (`.mat` → `MatFileIO.load`, `.otb+`/`.otb` → `otb_plus_file_io`,
-  `.otb4` → `otb_4_file_io`), then sanitizes and returns an `EMGFile`.
+  `.otb4` → `otb_4_file_io`, `.edf` → `edf_file_io`), then sanitizes and
+  returns an `EMGFile`.
 
 #### Attributes
 
@@ -229,7 +232,12 @@ Novecento+ files may contain:
   * OTB4 (`.otb4`) → `otb_4_file_io.load_otb4_file`
     * **Novecento+** device detection and multi-track loading
     * Grid metadata extraction from XML
+  * EDF / EDF+C (`.edf`) → `edf_file_io.load_edf_file`
+    * BIDS `*_channels.tsv` / `*_emg.json` sidecars for grid geometry
 * **Sanitization**: ensures `data` is 2-D (samples × channels) and `time` is 1-D, swapping axes if needed.
+* **Unit**: each loader reports what the file declares; `EMGFile` normalizes it
+  via `hdsemg_shared.fileio.units.normalize_unit` and never infers one from the
+  data.
 * **Grid JSON cache**: fetched from Google Drive once per week, stored in `~/.hdsemg_cache/`.
 
 ---
@@ -248,7 +256,11 @@ for grid in emg.grids:
 # Find a specific grid
 g2x8 = emg.get_grid(grid_key="2x8")
 
-# Save a selection back to .mat
+# Work in a known unit before comparing against a physiological threshold
+if emg.unit is not None:
+    emg_uv = emg.to_unit("uV")
+
+# Save a selection back to .mat (the unit travels with it, when known)
 emg.save("selected_subset.mat")
 ```
 

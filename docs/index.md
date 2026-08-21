@@ -22,6 +22,7 @@ This module provides shared logic for HD-sEMG signal processing and file handlin
 - Unified file I/O for HD-sEMG data (including OTB, OTB+, OTB4, MATLAB, and more)
 - **Novecento+** device support with multi-track recordings and control signals
 - Automatic grid metadata extraction from XML files
+- Declared signal unit (`EMGFile.unit`) so amplitudes are never guessed from magnitude
 - Preprocessing utilities for EMG signals
 - Filtering and grid utilities
 - Designed for extensibility and integration in larger EMG analysis pipelines

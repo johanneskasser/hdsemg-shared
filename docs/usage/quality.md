@@ -23,6 +23,20 @@ samples-by-channels, so pass `emg.data.T` — and return one entry per row. A
 channel that is entirely NaN, an excluded or unwired position, yields NaN
 rather than raising.
 
+Amplitudes come back in whatever unit went in — that is what `[xV]` means in
+the docstrings. `EMGFile.unit` says which one that is, so convert **before**
+comparing against a threshold in µV:
+
+```python
+emg = EMGFile.load("recording.otb4")
+emg.unit                       # "mV" for OTB4, None when the file says nothing
+amp = channel_amplitude(emg.to_unit("uV").data.T, fs)   # now genuinely µV
+```
+
+`unit` is `None` for a file that declares nothing, and `to_unit` raises rather
+than guessing. Ratios and `robust_z` scores are unit-free and unaffected;
+every absolute number is not.
+
 | function | question it answers |
 |---|---|
 | `flat_channels` | is the electrode disconnected or saturated? |
