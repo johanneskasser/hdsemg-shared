@@ -145,13 +145,28 @@ velocity.
 | status | meaning |
 |---|---|
 | `"ok"` | one propagation direction across the whole grid |
-| `"iz_split"` | an innervation zone splits the grid; `cv_reported_ms` is the **one-sided** estimate, which is the only one defined here |
+| `"iz_split"` | an innervation zone splits the grid; `cv_reported_ms` is the **one-sided** estimate, which is the only one defined here, or `NaN` when neither side carries four bin pairs |
 | `"too_few_pairs"` | fewer than four bin pairs existed at all; the velocity is NaN |
 | `"out_of_range"` | bin pairs existed but none implied a physiological velocity; the velocity is NaN |
 
 A status that says the velocity is not estimable is handed `NaN`, never a
 number — so a caller who reads the number first cannot mistake it for a
 measurement.
+
+!!! warning "`iz_split` does not guarantee a velocity"
+    When an innervation zone splits the grid and **neither side** carries
+    four bin pairs, there is no one-sided estimate, and `cv_reported_ms` is
+    `NaN`. It is deliberately *not* backfilled with the whole-grid median:
+    that number averages pairs on both sides of the end plate, where the
+    potentials travel in opposite directions, so it is not the velocity of
+    anything.
+
+    This matters because such a number looks entirely respectable. Over 1296
+    measured grids from one study, 101 were in this state and 53 of them
+    produced a whole-grid figure inside the physiological 3.0–5.5 m/s band —
+    nothing about the value itself would have told a reader it was
+    meaningless. Read `cv_reported_ms`, and treat `NaN` as "not measured"
+    rather than as "grid is bad".
 
 !!! note "An innervation zone is a note, not a failure"
     A grid straddling an innervation zone is perfectly usable for amplitude,
@@ -224,6 +239,60 @@ trustworthy = prop.propagation_score > 0.5
     majority; a grid whose trials *mostly* measure 90° really is mounted
     across the axis, and the remedy is to rotate the map, never to discard
     the grid.
+
+---
+
+## Amplitude maps: the grid laid out in space
+
+`propagation` reads a grid through **delays** — when each position fires.
+`amplitude_map` reads the same grid through **amplitudes** — how strong each
+position is over one short epoch, laid out the way the electrodes sit on the
+muscle. It is what a heat map is drawn from, and it finds the innervation zone
+a second, independent way.
+
+```python
+from hdsemg_shared.quality import (amplitude_map, innervation_zone_line,
+                                   upsample_map, barycenter)
+
+amap = amplitude_map(emg.T, emg_map, ied_mm=10.0, fs=fs, window=peak_window)
+iz = innervation_zone_line(upsample_map(amap))
+
+iz.center_xy_mm      # (15.0, 25.98) mm
+iz.full_width        # False means a PARTIAL detection - see below
+barycenter(amap)     # where the signal sits under the grid
+```
+
+Differences are taken **along each grid column**, between electrodes adjacent
+in the map's inner index — the same axis `propagation` calls 0°.
+
+### Two innervation zone estimates, on purpose
+
+Under an end plate the potentials leave in both directions, so the
+differentials either side partly cancel and the amplitude has a local
+**minimum**. That is what `innervation_zone_line` finds. `propagation` instead
+finds where the adjacent-bin delays **reverse sign**. The two fail differently:
+
+| | needs | fooled by |
+|---|---|---|
+| amplitude dip | no delay estimate, so it survives short or noisy epochs | any other cause of a dip — a lifted electrode, a fat pocket, a bad connector row |
+| delay reversal | a usable delay at every bin | little else, but it simply fails when the epoch is too short |
+
+Where they agree, the innervation zone is real. Where they do not, **the
+disagreement is the finding** and neither should be quoted alone.
+
+### `full_width` is the confidence
+
+The dip is found per column, then kept only where it moves by no more than
+half an inter-electrode distance from one column to the next — an end plate is
+a band across the muscle, not a scatter of unrelated dips. A run narrower than
+the grid is a **partial** detection, and `center_xy_mm` is then the centre of
+that part, not of the grid. Check `full_width` before quoting the position.
+
+!!! note "Upsampling carries the electrode spacing with it"
+    After `upsample_map`, the spacing of `x_mm` is 0.1 mm, not the electrode
+    spacing. The continuity tolerance needs the real one, so `AmplitudeMap`
+    carries `ied_mm` through the interpolation rather than letting anything
+    read it off the axis.
 
 ---
 
