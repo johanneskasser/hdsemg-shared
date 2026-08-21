@@ -288,6 +288,19 @@ a band across the muscle, not a scatter of unrelated dips. A run narrower than
 the grid is a **partial** detection, and `center_xy_mm` is then the centre of
 that part, not of the grid. Check `full_width` before quoting the position.
 
+!!! warning "The interpolation kernel is not a free choice"
+    `upsample_map` uses **Keys cubic convolution** (a = −0.5), the kernel
+    MATLAB's `interp2(..., 'cubic')` uses — not an interpolating spline.
+    Substituting a spline changes *answers*, not just smoothness: where a grid
+    column holds two nearly equal dips, the two surfaces disagree about which
+    is **deeper**, and the detection jumps to the other dip rather than
+    shifting slightly.
+
+    Against a 116-epoch MATLAB reference, the Keys kernel agrees to a median
+    of −0.04 mm (within 1 mm on 79 epochs); a spline gave 0.34 mm and 56. On
+    the worst epoch — 210 of 301 interpolated columns holding two competing
+    minima — the spline landed **33 mm** away and Keys lands 2.8 mm.
+
 !!! note "Upsampling carries the electrode spacing with it"
     After `upsample_map`, the spacing of `x_mm` is 0.1 mm, not the electrode
     spacing. The continuity tolerance needs the real one, so `AmplitudeMap`

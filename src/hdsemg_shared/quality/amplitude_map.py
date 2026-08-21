@@ -43,12 +43,19 @@ plate is
 
   VALIDATED AGAINST THE REFERENCE IMPLEMENTATION
     Checked against a MATLAB run over 116 consecutive 125 ms epochs of a
-    32-channel 4x8 recording: the innervation zone position agreed to a
-    median of 0.25 mm, and on the epochs where this implementation found a
-    full-width line, 43 of 46 agreed within 1 mm. The residual is the
-    interpolation kernel - MATLAB's interp2 'cubic' is a bicubic
-    CONVOLUTION (Keys), not an interpolating spline - which moves which
-    columns pass the continuity test, not where the dip is.
+    32-channel 4x8 recording, matching its 30-450 Hz bandpass: the
+    innervation zone position agrees to a median of -0.04 mm, within 1 mm on
+    79 of 116 epochs and within 2 mm on 87. The barycentre agrees to 0.5 mm.
+
+    The interpolation kernel had to match to get there. MATLAB's interp2
+    'cubic' is a bicubic CONVOLUTION (Keys, a = -0.5), and substituting an
+    interpolating spline moved the agreement to a median of 0.34 mm and
+    within 1 mm on only 56 epochs. The reason is not smoothing: where a
+    column holds two nearly equal dips, the two surfaces disagree about
+    which is DEEPER and the detection jumps to the other dip. On the worst
+    epoch, where 210 of 301 interpolated columns held two competing minima,
+    the spline landed 33 mm from MATLAB's answer and the Keys kernel lands
+    2.8 mm from it.
 
   NOTHING HERE RETURNS A VERDICT, as everywhere else in this package.
 
@@ -56,7 +63,7 @@ plate is
   ...                      window = peak_window)
   >>> iz = innervation_zone_line(upsample_map(amap))
   >>> iz.center_xy_mm
-  (15.0, 25.98)
+  (15.0, 25.94)
 
   (c) H Penasso. Written for hdsemg-shared by Claude Opus 5, 2026-08-21.
 """
@@ -64,7 +71,6 @@ plate is
 from typing import NamedTuple
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
 from scipy.signal import find_peaks
 
 from hdsemg_shared.preprocessing.grid_map import _as_map, _check_indices
@@ -244,7 +250,10 @@ def upsample_map(amap, step_mm = DEFAULT_UPSAMPLE_MM):
       OUTPUT
         amap    ... AmplitudeMap on the finer axes []
 
-      *INFO* ... cubic in both directions, so the interpolated surface can
+      *INFO* ... Keys cubic CONVOLUTION in both directions, the kernel
+                  MATLAB's interp2(..., 'cubic') uses, not an interpolating
+                  spline - see _resample_axis for why that distinction
+                  changes answers here. The interpolated surface can
                   overshoot the measured range slightly. That is visible in
                   the reference implementation too, where the colour bar
                   runs below zero on a strictly positive quantity. Missing
@@ -258,12 +267,11 @@ def upsample_map(amap, step_mm = DEFAULT_UPSAMPLE_MM):
         return amap
 
     z = _fill_missing(z)
-    ky = min(3, z.shape[0] - 1)
-    kx = min(3, z.shape[1] - 1)
-    spline = RectBivariateSpline(amap.y_mm, amap.x_mm, z, kx=kx, ky=ky)
     y = _fine_axis(amap.y_mm, step_mm)
     x = _fine_axis(amap.x_mm, step_mm)
-    return amap._replace(values=spline(y, x), x_mm=x, y_mm=y)
+    z = _resample_axis(z, y.size, axis=0)
+    z = _resample_axis(z, x.size, axis=1)
+    return amap._replace(values=z, x_mm=x, y_mm=y)
 
 
 def innervation_zone_line(amap, ied_mm = None):
@@ -409,6 +417,64 @@ def _fill_missing(z):
     if np.any(~np.isfinite(out)):
         out[~np.isfinite(out)] = float(np.nanmean(z))
     return out
+
+
+def _keys_weights(s):
+    """
+    Keys bicubic CONVOLUTION weights, a = -0.5, for the four taps around a
+    fractional position s in [0, 1).
+    """
+    def kernel(x):
+        x = np.abs(x)
+        out = np.zeros_like(x)
+        inner = x <= 1.0
+        out[inner] = 1.5 * x[inner] ** 3 - 2.5 * x[inner] ** 2 + 1.0
+        outer = (x > 1.0) & (x < 2.0)
+        out[outer] = -0.5 * x[outer] ** 3 + 2.5 * x[outer] ** 2 - 4.0 * x[outer] + 2.0
+        return out
+
+    s = np.asarray(s, dtype=np.float64)
+    return np.stack([kernel(s + 1.0), kernel(s), kernel(s - 1.0),
+                     kernel(s - 2.0)], axis=-1)
+
+
+def _resample_axis(values, n_out, axis):
+    """
+    Resample one axis by Keys cubic convolution, the kernel MATLAB's
+    interp2(..., 'cubic') uses.
+
+    NOT an interpolating spline. The difference is not cosmetic on this
+    measurement: where a grid column holds two nearly equal amplitude dips,
+    the two surfaces can disagree about which is DEEPER, and the innervation
+    zone then jumps to the other dip rather than shifting slightly. Measured
+    against a MATLAB reference run of 116 epochs, the spline agreed to a
+    median of 0.34 mm and within 1 mm on 56 epochs; this kernel agrees to
+    -0.04 mm and within 1 mm on 79. On the worst epoch - one where 210 of 301
+    interpolated columns held two competing minima - the spline picked a dip
+    33 mm away from MATLAB's, and this picks the same one, to 2.8 mm.
+
+    Ends are extrapolated as 3*a0 - 3*a1 + a2, again as interp2 does. An axis
+    too short for that falls back to linear.
+    """
+    work = np.moveaxis(np.asarray(values, dtype=np.float64), axis, 0)
+    n_in = work.shape[0]
+    if n_in < 2 or n_out < 1:
+        return values
+
+    t = np.linspace(0.0, n_in - 1, n_out)
+    k = np.clip(np.floor(t).astype(int), 0, n_in - 2)
+
+    if n_in < 3:
+        s = (t - k).reshape((-1,) + (1,) * (work.ndim - 1))
+        return np.moveaxis(work[k] * (1.0 - s) + work[k + 1] * s, 0, axis)
+
+    padded = np.concatenate([
+        (3.0 * work[0] - 3.0 * work[1] + work[2])[None],
+        work,
+        (3.0 * work[-1] - 3.0 * work[-2] + work[-3])[None]])
+    weights = _keys_weights(t - k)
+    taps = padded[k[:, None] + np.arange(4)[None, :]]
+    return np.moveaxis(np.einsum("ij,ij...->i...", weights, taps), 0, axis)
 
 
 def _fine_axis(axis, step_mm):

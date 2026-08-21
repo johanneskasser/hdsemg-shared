@@ -266,3 +266,41 @@ def test_bad_arguments_are_named(kwargs, match):
     call.update(kwargs)
     with pytest.raises(ValueError, match=match):
         amplitude_map(mat, emg_map, call.pop("ied_mm"), FS, **call)
+
+
+# ---------------------------------------------------------------------------
+# the interpolation kernel, which is not a free choice here
+# ---------------------------------------------------------------------------
+
+def test_the_kernel_is_keys_cubic_convolution_not_a_spline():
+    """
+    MATLAB's interp2(..., 'cubic') is Keys convolution with a = -0.5, whose
+    half-sample weights are the classic [-1/16, 9/16, 9/16, -1/16].
+
+    This is pinned because substituting an interpolating spline changes
+    ANSWERS, not just smoothness: where a column holds two nearly equal
+    amplitude dips the two surfaces disagree about which is deeper, and the
+    innervation zone jumps to the other dip. Against a 116-epoch MATLAB
+    reference that cost 23 epochs of sub-millimetre agreement, and 33 mm on
+    the worst one.
+    """
+    from hdsemg_shared.quality.amplitude_map import _keys_weights
+
+    half = _keys_weights(0.5)
+    assert half == pytest.approx([-1 / 16, 9 / 16, 9 / 16, -1 / 16])
+    assert half.sum() == pytest.approx(1.0)
+
+    # and it is interpolating: on a sample, all the weight is on that sample
+    assert _keys_weights(0.0) == pytest.approx([0.0, 1.0, 0.0, 0.0])
+
+
+def test_upsampling_passes_through_the_measured_values():
+    """An interpolated surface must still equal the measurement at the
+    positions the measurement was taken at."""
+    mat, emg_map = scaled_grid(row_gain=_dip_grid(3))
+    amap = amplitude_map(mat, emg_map, IED_MM, FS)
+    fine = upsample_map(amap, step_mm=0.1)
+
+    step = int(round(IED_MM / 0.1))
+    at_electrodes = fine.values[::step, ::step]
+    assert at_electrodes == pytest.approx(amap.values, rel=1e-9)
