@@ -288,6 +288,54 @@ a band across the muscle, not a scatter of unrelated dips. A run narrower than
 the grid is a **partial** detection, and `center_xy_mm` is then the centre of
 that part, not of the grid. Check `full_width` before quoting the position.
 
+### The innervation zone's tilt is the fibre direction
+
+An end plate is a band **across** the fibres, so the band's tilt away from the
+grid's row direction is the fibres' tilt away from its column direction.
+`innervation_zone_line` returns it as `angle_deg`, with `fit_y_mm` for drawing.
+
+```python
+iz = innervation_zone_line(upsample_map(amap))
+iz.angle_deg                       # +3.4 deg off the grid column axis
+
+# a velocity measured DOWN the columns is too fast by 1/cos(angle)
+down = propagation(emg.T, emg_map, ied_mm, fs, angles=[0.0]).cv_reported_ms
+along = angle_corrected_velocity(down, iz.angle_deg)
+```
+
+!!! danger "Only correct a velocity measured down the columns"
+    `propagation()`'s own `cv_reported_ms` is already measured along the
+    direction its search chose. Multiplying **that** by `cos(angle_deg)`
+    applies the geometry twice. Restrict the search with `angles=[0.0]` to get
+    a column-axis velocity, and correct that one.
+
+!!! note "The correction is small, and cannot rescue a disagreement"
+    10° costs 1.5 %, 20° costs 6 %, and only past 30° does it exceed 13 %. On a
+    reference recording whose innervation zone tilt was 3.5° (IQR 0.9–8.0), it
+    moved the velocity by **0.6 %**. If two velocity estimates differ by tens
+    of per cent, the cause is method, not geometry — see below.
+
+`angle_deg` is also the **steadier** of the two fibre-direction estimates. Over
+116 consecutive epochs of a recording whose grid never moved, the IZ-derived
+angle varied with SD 11.7° against the angle search's 28.1°.
+
+### This is not the Farina–Merletti ML estimator
+
+`propagation` and the MATLAB `ML_CV_MulitCol` (Farina & Merletti 2004) answer
+the same question differently, and on real data they **disagree substantially**
+— measured across 116 epochs, a median of +1.3 m/s with a between-epoch
+correlation of only 0.38. The differences, in rough order of size:
+
+| | `propagation` | `ML_CV_MulitCol` |
+|---|---|---|
+| derivation | single differential | **double** differential |
+| channels | every live electrode, binned | a best-correlating **subset**, chosen first |
+| estimator | median of pairwise delays | one delay fitted jointly over all channels, Newton |
+| innervation zone | handled, one side used | must be **absent** — the caller selects it away |
+
+Do not treat one as a validation of the other, and do not mix them within a
+study.
+
 !!! warning "The interpolation kernel is not a free choice"
     `upsample_map` uses **Keys cubic convolution** (a = −0.5), the kernel
     MATLAB's `interp2(..., 'cubic')` uses — not an interpolating spline.

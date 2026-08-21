@@ -304,3 +304,85 @@ def test_upsampling_passes_through_the_measured_values():
     step = int(round(IED_MM / 0.1))
     at_electrodes = fine.values[::step, ::step]
     assert at_electrodes == pytest.approx(amap.values, rel=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# the innervation zone's tilt, and the velocity correction it implies
+# ---------------------------------------------------------------------------
+
+def tilted_map(angle_deg, y0=30.0, sigma=6.0, span_mm=30.0, height_mm=60.0):
+    """
+    A map whose amplitude valley runs at a KNOWN angle: the dip sits exactly
+    at y = y0 + tan(angle) * x, so innervation_zone_line must return that
+    angle back.
+    """
+    from hdsemg_shared.quality.amplitude_map import AmplitudeMap
+
+    x = np.arange(0.0, span_mm + 0.05, 0.1)
+    y = np.arange(5.0, 5.0 + height_mm + 0.05, 0.1)
+    slope = np.tan(np.radians(angle_deg))
+    ridge = y0 + slope * x[None, :]
+    values = 50.0 - 30.0 * np.exp(-((y[:, None] - ridge) ** 2) / (2 * sigma ** 2))
+    return AmplitudeMap(values=values, x_mm=x, y_mm=y, derivation="SD",
+                        measure="RMS", n_samples=250, ied_mm=IED_MM)
+
+
+@pytest.mark.parametrize("planted", [0.0, 4.0, -7.0, 12.0])
+def test_the_innervation_zone_angle_is_recovered(planted):
+    iz = innervation_zone_line(tilted_map(planted))
+
+    assert iz.full_width
+    assert iz.angle_deg == pytest.approx(planted, abs=0.5)
+
+
+def test_the_fitted_line_is_only_drawn_over_the_accepted_run():
+    iz = innervation_zone_line(tilted_map(5.0))
+    drawn = np.isfinite(iz.fit_y_mm)
+
+    assert drawn.sum() == iz.columns_covered
+    assert np.allclose(iz.fit_y_mm[drawn], iz.y_mm[drawn], atol=1.0)
+
+
+def test_an_angle_needs_more_than_one_column():
+    """One interpolated column wide is not a direction, and must not return
+    a confident-looking angle from noise."""
+    amap = tilted_map(0.0)
+    values = np.full_like(amap.values, 50.0)
+    values[300, 7] = 0.0                       # a single isolated dip
+    iz = innervation_zone_line(amap._replace(values=values))
+
+    assert np.isnan(iz.angle_deg)
+    assert not np.any(np.isfinite(iz.fit_y_mm))
+
+
+def test_correcting_for_the_angle_slows_the_velocity_by_the_cosine():
+    """
+    Electrodes one ied apart down a column are only ied*cos(angle) apart
+    along the fibre, so an uncorrected estimate reports too FAST.
+    """
+    from hdsemg_shared.quality import angle_corrected_velocity
+
+    assert angle_corrected_velocity(5.0, 0.0) == pytest.approx(5.0)
+    assert angle_corrected_velocity(5.0, 60.0) == pytest.approx(2.5)
+    assert angle_corrected_velocity(5.0, -60.0) == pytest.approx(2.5)
+    assert angle_corrected_velocity(5.0, 30.0) < 5.0
+
+
+def test_the_angle_correction_is_small_until_the_grid_is_badly_rotated():
+    """
+    Guards the claim the docstring makes, because it is the reason this
+    cannot reconcile two estimates that disagree by tens of per cent.
+    """
+    from hdsemg_shared.quality import angle_corrected_velocity
+
+    assert 1 - angle_corrected_velocity(1.0, 10.0) < 0.02
+    assert 1 - angle_corrected_velocity(1.0, 20.0) < 0.07
+    assert 1 - angle_corrected_velocity(1.0, 30.0) > 0.13
+
+
+def test_an_unknown_or_edge_on_angle_yields_no_corrected_velocity():
+    from hdsemg_shared.quality import angle_corrected_velocity
+
+    assert np.isnan(angle_corrected_velocity(5.0, np.nan))
+    assert np.isnan(angle_corrected_velocity(np.nan, 10.0))
+    assert np.isnan(angle_corrected_velocity(5.0, 90.0))

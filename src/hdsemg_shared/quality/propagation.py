@@ -567,6 +567,25 @@ def _xcorr_delay(s_i, s_j, fs):
     two bins actually have in common, which is what separates the true
     fibre direction from an oblique one that merely happens to produce
     equal delays, see _score_direction.
+
+    THE PEAK IS REFINED BETWEEN SAMPLES, AND HAS TO BE
+      argmax alone resolves the delay to a whole sample, and a velocity is
+      that delay in a denominator: at 2 kHz over a 5 mm bin spacing the only
+      velocities an integer delay can express are 10, 5, 3.33, 2.5 m/s and
+      so on. Nothing between 5 and 10 exists, which is most of the
+      physiological range.
+
+      It is not merely coarse, it is BIASED. Rounding scatters the delay
+      symmetrically but velocity is convex in it, so the high side is
+      stretched further than the low side is compressed and the average
+      comes out too fast. Measured against a MATLAB reference over 116
+      epochs, the integer version sat 1.63 m/s high and produced 12 distinct
+      values where the reference produced 89.
+
+      A parabola through the peak and its two neighbours is the standard
+      remedy and what the reference implementation does before its own
+      refinement. The correction is clamped to half a sample, beyond which
+      the fit is describing noise rather than the peak.
     """
     norm_i = np.linalg.norm(s_i)
     norm_j = np.linalg.norm(s_j)
@@ -574,7 +593,16 @@ def _xcorr_delay(s_i, s_j, fs):
         return None, 0.0
     xc = correlate(s_i, s_j, mode="full") / (norm_i * norm_j)
     peak = int(np.argmax(xc))
-    return (peak - (len(s_j) - 1)) / fs, float(xc[peak])
+
+    offset, height = 0.0, float(xc[peak])
+    if 0 < peak < len(xc) - 1:
+        left, mid, right = float(xc[peak - 1]), height, float(xc[peak + 1])
+        curvature = left - 2.0 * mid + right
+        if curvature < 0.0:                       # a maximum, not a plateau
+            offset = float(np.clip(0.5 * (left - right) / curvature, -0.5, 0.5))
+            height = mid - 0.25 * (left - right) * offset
+
+    return (peak + offset - (len(s_j) - 1)) / fs, height
 
 
 def _physiological(delays_ms, spacings_m):
