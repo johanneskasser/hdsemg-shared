@@ -398,6 +398,61 @@ def propagation(emg_channels, emg_map, ied_mm, fs, angles = None, bpf = None,
 # signal preparation
 # ---------------------------------------------------------------------------
 
+def differential_map(emg_channels, emg_map, ied_mm, fs, angle_deg, bpf = None,
+                     window = None, pad_s = DEFAULT_PAD_S, derivation = 'SD'):
+    """
+    DIFFERENTIAL_MAP returns the signals a propagation figure is drawn from
+
+      positions, signals = differential_map(emg.T, emg_map, 10.0, fs,
+                                            prop.fiber_angle_deg)
+
+      The same binning propagation() measures on, handed back so a caller can
+      DRAW it: electrodes projected onto one direction, binned at half the
+      inter-electrode distance, averaged within a bin, and differenced between
+      adjacent bins.
+
+      INPUT
+        emg_channels ... matrix, each row one channel's RAW signal over time [xV]
+        emg_map      ... the grid's channel map, see propagation []
+        ied_mm       ... inter-electrode distance [mm]
+        fs           ... sampling frequency [Hz]
+        angle_deg    ... the direction to project along, normally
+                          propagation()'s fiber_angle_deg [deg]
+
+      OPTIONAL INPUT
+        bpf / window / pad_s ... as propagation []
+        derivation   ... 'SD' (default) or 'MP' []
+
+      OUTPUT
+        positions    ... where each row sits along the direction [m]
+        signals      ... nPositions-by-nSamples, row i at positions[i] [xV]
+
+      *INFO* ... an image of `signals` shows the potentials travelling as
+                  slanted stripes, and an innervation zone as the point where
+                  their slant REVERSES. propagation()'s iz_position_m lands on
+                  the same axis as `positions`, so it can be drawn straight
+                  onto that image as a horizontal line
+    """
+    x = np.asarray(emg_channels, dtype=np.float64)
+    grid = _as_map(emg_map)
+    _check_indices(grid, x.shape[0])
+
+    prepared = x if bpf is False else _bandpass(x, _merged_bpf(bpf), fs, pad_s)
+    prepared = _apply_window(prepared, window)
+
+    mono = _placed_signals(prepared, grid)
+    if not mono:
+        return np.zeros(0), np.zeros((0, prepared.shape[1]))
+
+    binned = _binned_signals(float(angle_deg), mono, float(ied_mm) * 1e-3, derivation)
+    if not binned:
+        return np.zeros(0), np.zeros((0, prepared.shape[1]))
+
+    positions = np.asarray([p for p, _ in binned], dtype=np.float64)
+    signals = np.vstack([s for _, s in binned])
+    return positions, signals
+
+
 def _placed_signals(prepared, grid):
     """
     The signals the map actually places, keyed by (column, row).

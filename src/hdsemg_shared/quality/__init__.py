@@ -43,6 +43,7 @@ from hdsemg_shared.quality.channel_metrics import (
 )
 from hdsemg_shared.quality.propagation import (
     DEFAULT_ANGLES,
+    differential_map,
     MAX_CV_MS,
     MIN_CV_MS,
     MIN_VALID_PAIRS,
@@ -64,6 +65,7 @@ __all__ = [
     "neighbor_correlation",
     "robust_z",
     "DEFAULT_ANGLES",
+    "differential_map",
     "MAX_CV_MS",
     "MIN_CV_MS",
     "MIN_VALID_PAIRS",
