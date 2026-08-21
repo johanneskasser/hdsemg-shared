@@ -261,8 +261,8 @@ def upsample_map(amap, step_mm = DEFAULT_UPSAMPLE_MM):
     ky = min(3, z.shape[0] - 1)
     kx = min(3, z.shape[1] - 1)
     spline = RectBivariateSpline(amap.y_mm, amap.x_mm, z, kx=kx, ky=ky)
-    y = np.arange(amap.y_mm[0], amap.y_mm[-1] + step_mm / 2.0, step_mm)
-    x = np.arange(amap.x_mm[0], amap.x_mm[-1] + step_mm / 2.0, step_mm)
+    y = _fine_axis(amap.y_mm, step_mm)
+    x = _fine_axis(amap.x_mm, step_mm)
     return amap._replace(values=spline(y, x), x_mm=x, y_mm=y)
 
 
@@ -409,6 +409,20 @@ def _fill_missing(z):
     if np.any(~np.isfinite(out)):
         out[~np.isfinite(out)] = float(np.nanmean(z))
     return out
+
+
+def _fine_axis(axis, step_mm):
+    """
+    The interpolated axis, ending EXACTLY on the last electrode.
+
+    arange with a float step accumulates rounding and lands a fraction short
+    of the endpoint, which then becomes the extent a figure draws the map
+    over: the surface would be shown very slightly narrower than the span it
+    was measured across. linspace pins both ends instead.
+    """
+    start, end = float(axis[0]), float(axis[-1])
+    n = int(round((end - start) / float(step_mm))) + 1
+    return np.linspace(start, end, max(n, 2))
 
 
 def _continuity_tolerance(amap, ied_mm):
