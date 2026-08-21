@@ -156,12 +156,19 @@ class InnervationZone(NamedTuple):
                        accepted run, for drawing [mm]
 
     *INFO* ... angle_deg is what corrects a velocity measured DOWN a grid
-                column, see angle_corrected_velocity. It is an independent
-                estimate of the fibre direction from propagation()'s angle
-                search, and on a grid that does not move between trials it
-                is the steadier of the two: over 116 consecutive epochs of
-                one recording it varied with SD 11.7 deg against the
-                search's 28.1 deg.
+                column, see angle_corrected_velocity. It is an estimate of
+                the fibre direction independent of propagation()'s angle
+                search, and it VARIES LESS between trials of a grid that
+                never moved - over 116 consecutive epochs of one recording,
+                SD 11.7 deg against the search's 28.1 deg.
+
+                Read that steadiness carefully. The band's tilt is measured
+                ACROSS the columns, so a grid few columns wide under-reads
+                it and collapses toward zero, which also looks steady. On
+                twelve columns a planted 30 deg is recovered to within 6;
+                on four it is not, while the delay search still finds it.
+                Below about eight columns, treat this angle as a weak prior
+                and not as a correction to lean on.
     """
     y_mm: np.ndarray
     x_mm: np.ndarray
@@ -504,7 +511,15 @@ def _iz_line_fit(x_mm, y_iz, start, stop):
     slope, intercept = np.polyfit(xs, ys, 1)
     fit = nan_line.copy()
     fit[start:stop] = slope * xs + intercept
-    return float(np.degrees(np.arctan(slope))), fit
+
+    # The SIGN, which is easy to get backwards and invisible at small tilts.
+    # The fitted band runs along (1, slope), i.e. at +arctan(slope) from the
+    # row axis. The fibres run PERPENDICULAR to it, along (-sin, cos) of that
+    # same angle - and propagation() names a direction by the theta for which
+    # it projects onto (sin theta, cos theta). Matching the two gives
+    # theta = -arctan(slope), so the returned angle is directly comparable
+    # with fiber_angle_deg rather than its mirror image.
+    return float(-np.degrees(np.arctan(slope))), fit
 
 
 def _keys_weights(s):

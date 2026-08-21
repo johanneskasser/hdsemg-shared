@@ -322,19 +322,30 @@ angle varied with SD 11.7° against the angle search's 28.1°.
 ### This is not the Farina–Merletti ML estimator
 
 `propagation` and the MATLAB `ML_CV_MulitCol` (Farina & Merletti 2004) answer
-the same question differently, and on real data they **disagree substantially**
-— measured across 116 epochs, a median of +1.3 m/s with a between-epoch
-correlation of only 0.38. The differences, in rough order of size:
+the same question differently, and on real data they disagree — measured across
+116 epochs of one recording, a median of +1.0 m/s. The differences:
 
 | | `propagation` | `ML_CV_MulitCol` |
 |---|---|---|
-| derivation | single differential | **double** differential |
+| derivation | **single** differential | **double** differential |
 | channels | every live electrode, binned | a best-correlating **subset**, chosen first |
 | estimator | median of pairwise delays | one delay fitted jointly over all channels, Newton |
 | innervation zone | handled, one side used | must be **absent** — the caller selects it away |
 
-Do not treat one as a validation of the other, and do not mix them within a
-study.
+**The derivation accounts for the level.** Holding everything else fixed and
+differencing twice instead of once moves the median from 5.31 m/s to 3.87
+against MATLAB's 4.05 — a bias of −0.23 m/s where the single differential gave
++0.98. A double differential is a spatial high-pass: it suppresses the
+non-propagating component every electrode shares, which is what inflates a
+single-differential velocity.
+
+What it does **not** fix is epoch-to-epoch agreement, which stays near zero
+correlation. That is the channel selection and the estimator form, not the
+derivation.
+
+`propagation` does not currently offer `derivation='DD'`. Until it does, do not
+treat its velocity as comparable with a MATLAB DD figure, and do not mix the
+two within a study.
 
 !!! warning "The interpolation kernel is not a free choice"
     `upsample_map` uses **Keys cubic convolution** (a = −0.5), the kernel

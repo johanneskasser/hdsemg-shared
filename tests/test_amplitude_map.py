@@ -310,29 +310,34 @@ def test_upsampling_passes_through_the_measured_values():
 # the innervation zone's tilt, and the velocity correction it implies
 # ---------------------------------------------------------------------------
 
-def tilted_map(angle_deg, y0=30.0, sigma=6.0, span_mm=30.0, height_mm=60.0):
+def tilted_map(band_tilt_deg, y0=30.0, sigma=6.0, span_mm=30.0, height_mm=60.0):
     """
-    A map whose amplitude valley runs at a KNOWN angle: the dip sits exactly
-    at y = y0 + tan(angle) * x, so innervation_zone_line must return that
-    angle back.
+    A map whose amplitude valley - the end-plate BAND - runs at a known tilt
+    from the row direction: the dip sits exactly at y = y0 + tan(tilt) * x.
+
+    The FIBRE direction is perpendicular to that band, so what
+    innervation_zone_line returns is the NEGATIVE of the planted tilt. That
+    sign is the whole point of the test: it is invisible at the few degrees
+    real grids show, and getting it backwards would mirror the arrow drawn
+    on every figure.
     """
     from hdsemg_shared.quality.amplitude_map import AmplitudeMap
 
     x = np.arange(0.0, span_mm + 0.05, 0.1)
     y = np.arange(5.0, 5.0 + height_mm + 0.05, 0.1)
-    slope = np.tan(np.radians(angle_deg))
+    slope = np.tan(np.radians(band_tilt_deg))
     ridge = y0 + slope * x[None, :]
     values = 50.0 - 30.0 * np.exp(-((y[:, None] - ridge) ** 2) / (2 * sigma ** 2))
     return AmplitudeMap(values=values, x_mm=x, y_mm=y, derivation="SD",
                         measure="RMS", n_samples=250, ied_mm=IED_MM)
 
 
-@pytest.mark.parametrize("planted", [0.0, 4.0, -7.0, 12.0])
-def test_the_innervation_zone_angle_is_recovered(planted):
-    iz = innervation_zone_line(tilted_map(planted))
+@pytest.mark.parametrize("band_tilt", [0.0, 4.0, -7.0, 12.0])
+def test_the_fibre_angle_is_perpendicular_to_the_planted_band(band_tilt):
+    iz = innervation_zone_line(tilted_map(band_tilt))
 
     assert iz.full_width
-    assert iz.angle_deg == pytest.approx(planted, abs=0.5)
+    assert iz.angle_deg == pytest.approx(-band_tilt, abs=0.5)
 
 
 def test_the_fitted_line_is_only_drawn_over_the_accepted_run():
@@ -386,3 +391,92 @@ def test_an_unknown_or_edge_on_angle_yields_no_corrected_velocity():
     assert np.isnan(angle_corrected_velocity(5.0, np.nan))
     assert np.isnan(angle_corrected_velocity(np.nan, 10.0))
     assert np.isnan(angle_corrected_velocity(5.0, 90.0))
+
+
+def travelling_at_angle(angle_deg, cv_ms=4.0, n_cols=12, n_rows=14,
+                        iz_at=6.0, seed=3, noise=1.0):
+    """
+    A grid carrying a wave that travels at a KNOWN angle with a KNOWN
+    velocity, leaving an innervation zone in both directions.
+
+    Twelve columns, not four: the end-plate band's tilt is read ACROSS the
+    columns, so a grid with few of them cannot resolve it. See
+    test_the_angle_needs_enough_columns_to_be_read.
+    """
+    rng = np.random.default_rng(seed)
+    source = _source(rng)
+    theta = np.radians(angle_deg)
+    emg_map = np.arange(n_cols * n_rows, dtype=float).reshape(n_cols, n_rows)
+    mat = np.empty((n_cols * n_rows, N_SAMPLES))
+    for c in range(n_cols):
+        for r in range(n_rows):
+            projected = r * np.cos(theta) + c * np.sin(theta)
+            distance = abs(projected - iz_at)
+            steps = int(round(distance * (IED_MM * 1e-3) / cv_ms * FS))
+            mat[int(emg_map[c, r])] = (np.roll(source, steps)
+                                       + rng.standard_normal(N_SAMPLES) * noise)
+    return mat, emg_map
+
+
+@pytest.mark.parametrize("planted", [20.0, 30.0, -25.0])
+def test_correcting_a_column_velocity_recovers_the_planted_one(planted):
+    """
+    The end-to-end claim, on a wave whose direction AND velocity are known.
+
+    Measured straight down the columns the velocity comes out too fast, by
+    1/cos of the planted angle, because the electrodes are closer together
+    along the fibre than they are down the column. Reading the angle off the
+    innervation zone and applying the cosine has to give the planted
+    velocity back.
+    """
+    from hdsemg_shared.quality import angle_corrected_velocity, propagation
+
+    mat, emg_map = travelling_at_angle(planted, cv_ms=4.0)
+    iz = innervation_zone_line(upsample_map(amplitude_map(mat, emg_map, IED_MM, FS)))
+    down = propagation(mat, emg_map, IED_MM, FS, angles=[0.0]).cv_reported_ms
+
+    assert down > 4.0                                  # too fast, as expected
+    assert angle_corrected_velocity(down, iz.angle_deg) == pytest.approx(4.0, abs=0.35)
+
+
+@pytest.mark.parametrize("planted", [20.0, 30.0, -25.0])
+def test_the_two_fibre_angle_estimates_agree_in_sign(planted):
+    """
+    innervation_zone_line reads the angle off the end-plate band's tilt and
+    propagation() reads it off the delays. They are independent, and a
+    reader is invited to compare them, so they must at least share a sign
+    convention - a mirrored one would look like a real disagreement.
+    """
+    from hdsemg_shared.quality import propagation
+
+    mat, emg_map = travelling_at_angle(planted, cv_ms=4.0)
+    iz = innervation_zone_line(upsample_map(amplitude_map(mat, emg_map, IED_MM, FS)))
+    searched = propagation(mat, emg_map, IED_MM, FS).fiber_angle_deg
+
+    assert np.sign(iz.angle_deg) == np.sign(planted)
+    assert iz.angle_deg == pytest.approx(searched, abs=6.0)
+
+
+def test_the_angle_needs_enough_columns_to_be_read():
+    """
+    The band's tilt is measured ACROSS the columns, so a grid with few of
+    them under-reads it and collapses toward zero. This is not a defect to
+    fix, it is a limit to know: the study grids here are 4 and 5 columns
+    wide, where the angle is not trustworthy and the velocity correction it
+    implies should not be leaned on.
+    """
+    from hdsemg_shared.quality import propagation
+
+    wide, wide_map = travelling_at_angle(30.0, n_cols=12)
+    narrow, narrow_map = travelling_at_angle(30.0, n_cols=4)
+
+    wide_angle = innervation_zone_line(
+        upsample_map(amplitude_map(wide, wide_map, IED_MM, FS))).angle_deg
+    narrow_angle = innervation_zone_line(
+        upsample_map(amplitude_map(narrow, narrow_map, IED_MM, FS))).angle_deg
+
+    assert abs(wide_angle - 30.0) < 6.0
+    # the delays still find it on the narrow grid; the band's tilt does not
+    assert propagation(narrow, narrow_map, IED_MM, FS).fiber_angle_deg == \
+        pytest.approx(30.0, abs=10.0)
+    assert abs(narrow_angle - 30.0) > abs(wide_angle - 30.0)
