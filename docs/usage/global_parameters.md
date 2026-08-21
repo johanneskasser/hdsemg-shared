@@ -175,7 +175,9 @@ def compute_entropy(signal: np.ndarray) -> float:
 
 **Description:**
 
-* Reduces a whole HDsEMG grid to one amplitude over time, `[xV]`.
+* Reduces a whole HDsEMG grid to one amplitude over time, `[xV]` — the same
+  volt prefix as the input. `EMGFile.unit` names it; convert with
+  `emg.to_unit("uV")` before reporting an absolute number.
 * Takes the raw channel matrix plus an `emg_map`; band-pass filtering,
   MP/SD/DD differentiation and the reduction all happen inside.
 * `method='RMS'` (default) or `'ARV'`.
@@ -224,6 +226,7 @@ from hdsemg_shared.global_parameters import global_amplitude
 from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices
 
 emg_file = EMGFile.load("recording.otb+")
+emg_file = emg_file.to_unit("uV")      # emg_file.unit is "mV" for OTB+/OTB4
 grid = emg_file.grids[0]
 emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
 
@@ -231,8 +234,8 @@ emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
 out = global_amplitude(emg_file.data.T, emg_map, emg_file.sampling_frequency,
                        method='RMS', derivation='SD')
 
-out.amplitude      # global amplitude over time      [xV]
-out.per_channel    # each channel's own envelope     [xV]
+out.amplitude      # global amplitude over time      [uV, matching the input]
+out.per_channel    # each channel's own envelope     [uV, matching the input]
 out.positions      # (column, row) of each channel
 out.grid_shape     # (nCols, nRows) after derivation
 out.n_channels     # how many contributed
@@ -402,6 +405,16 @@ from hdsemg_shared.global_parameters import global_amplitude
 from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices
 
 emg_file = EMGFile.load(cropped_file_path)
+
+# The *_uv keys below claim microvolts, so earn the claim rather than assuming
+# it: OTB+/OTB4 hand back millivolts, and a plain .mat declares nothing at all.
+if emg_file.unit is None:
+    raise ValueError(
+        f"{cropped_file_path} declares no signal unit; refusing to write "
+        f"microvolt fields from data of unknown scale."
+    )
+emg_file = emg_file.to_unit("uV")
+
 emg_channels = emg_file.data.T          # (n_samples, n_channels) -> channels first
 
 results = {}

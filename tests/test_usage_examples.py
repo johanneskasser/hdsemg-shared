@@ -166,6 +166,62 @@ def test_the_pipe_recipe_over_every_grid_of_a_file():
     json.dumps({"grids": results})   # the sidecar must be JSON-serialisable
 
 
+def _millivolt_emg_file(n_channels=12, rows=4, cols=3):
+    """An EMGFile whose grid channels are the 100 uV sine, expressed in mV."""
+    from hdsemg_shared.fileio.file_io import EMGFile
+
+    data = np.vstack([_signal(n_channels) * 1e-3,          # 100 uV -> 0.1 mV
+                      np.full((1, N_SAMPLES), 30000.0)]).T  # a performed-path ref
+    desc = [f"HD10MM{rows:02d}{cols:02d} ch{i + 1}" for i in range(n_channels)]
+    desc.append("performed path")
+    emg = EMGFile(data, np.arange(N_SAMPLES) / FS, desc, FS, "f.mat", 0, "mat", "mV")
+    return emg
+
+
+def test_the_pipe_recipe_converts_before_writing_microvolt_fields(monkeypatch):
+    """
+    The prologue documented above the pipe recipe: refuse an undeclared unit,
+    otherwise convert, so the *_uv keys are microvolts rather than a guess.
+    """
+    monkeypatch.setattr("hdsemg_shared.fileio.file_io.EMGFile._grid_cache", [])
+
+    emg_file = _millivolt_emg_file()
+    assert emg_file.unit == "mV"
+
+    emg_file = emg_file.to_unit("uV")
+
+    grid = emg_file.grids[0]
+    emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
+    out = global_amplitude(emg_file.data.T, emg_map, FS, method="RMS", derivation="MP")
+
+    # the 1000x that the unit attribute exists to prevent
+    assert float(out.amplitude.mean()) == pytest.approx(100.0, rel=0.05)
+    # the reference channel is not EMG and keeps its own scale
+    assert emg_file.data[:, grid.ref_indices[0]].max() == pytest.approx(30000.0)
+
+
+def test_the_pipe_recipe_refuses_a_file_that_declares_no_unit(monkeypatch):
+    monkeypatch.setattr("hdsemg_shared.fileio.file_io.EMGFile._grid_cache", [])
+
+    emg_file = _millivolt_emg_file()
+    emg_file.unit = None
+
+    with pytest.raises(ValueError):
+        emg_file.to_unit("uV")
+
+
+def test_quality_page_converts_before_thresholding_in_microvolts(monkeypatch):
+    from hdsemg_shared.quality import channel_amplitude
+
+    monkeypatch.setattr("hdsemg_shared.fileio.file_io.EMGFile._grid_cache", [])
+
+    emg = _millivolt_emg_file()
+    grid_channels = emg.grids[0].emg_indices
+
+    amp = channel_amplitude(emg.to_unit("uV").data.T, FS)
+    np.testing.assert_allclose(amp.rms[grid_channels], 100.0, rtol=0.05)
+
+
 # --------------------------------------------------------------------------
 # From hdsemg-select
 # --------------------------------------------------------------------------
