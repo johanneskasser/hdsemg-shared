@@ -15,7 +15,11 @@ logger.addHandler(logging.NullHandler())
 def load_otb_file(file_path):
     """
     Loads data from a single .otb (or .otb+ / .zip / .tar) archive and returns
-    (data, time, description, sampling_frequency, file_name, file_size).
+    (data, time, description, sampling_frequency, file_name, file_size, unit).
+
+    ``unit`` is always ``"mV"``: the .otb+ abstract declares no unit per
+    channel, but :func:`scale_otb_data` converts the raw ADC counts to volts
+    and multiplies by 1000, so the EMG channels are millivolts by construction.
     """
     logger.debug(f"load_otb_file called with file_path={file_path}")
     file_path_obj = Path(file_path)
@@ -90,7 +94,7 @@ def load_otb_file(file_path):
     shutil.rmtree(tmpdir, ignore_errors=True)
     logger.info(f"OTB file loaded successfully: {file_name}")
 
-    return data_scaled, time, description, sampling_frequency, file_name, file_size
+    return data_scaled, time, description, sampling_frequency, file_name, file_size, "mV"
 
 
 import xml.etree.ElementTree as ET
