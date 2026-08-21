@@ -150,10 +150,11 @@
 <h1 id="file-io-grid-extraction">File I/O &amp; Grid Extraction</h1>
 <p>The <strong><code>hdsemg_shared.fileio</code></strong> module provides a interface to:</p>
 <ul>
-<li>Load HD-sEMG data from MATLAB (<code>.mat</code>), OTB+ (<code>.otb+</code>, <code>.otb</code>) or OTB4 (<code>.otb4</code>) files</li>
+<li>Load HD-sEMG data from MATLAB (<code>.mat</code>), OTB+ (<code>.otb+</code>, <code>.otb</code>), OTB4 (<code>.otb4</code>) or EDF (<code>.edf</code>) files</li>
 <li>Support for <strong>Novecento+</strong> device files with multi-track recordings and control signals</li>
 <li>Automatically sanitize and reshape the data/time arrays</li>
 <li>Extract electrode‐grid metadata (rows, columns, IED, reference channels, etc.)</li>
+<li>Report the signal unit each file declares, instead of leaving consumers to guess</li>
 <li>Cache remote grid‐configuration JSON for one week</li>
 <li>Save back to <code>.mat</code> if needed</li>
 </ul>
@@ -167,6 +168,7 @@
 <li>Raw data &amp; time vectors</li>
 <li>Channel descriptions</li>
 <li>Sampling frequency, file name, file size, file type</li>
+<li>The declared signal unit via <code>.unit</code></li>
 <li>Electrode‐grid metadata via the <code>.grids</code> property</li>
 </ul>
 <h4 id="loading">Loading</h4>
@@ -176,7 +178,8 @@
 <li><strong><code>load(filepath: str) -&gt; EMGFile</code></strong>
   Detects the extension and dispatches to the appropriate loader
   (<code>.mat</code> → <code>MatFileIO.load</code>, <code>.otb+</code>/<code>.otb</code> → <code>otb_plus_file_io</code>,
-  <code>.otb4</code> → <code>otb_4_file_io</code>), then sanitizes and returns an <code>EMGFile</code>.</li>
+  <code>.otb4</code> → <code>otb_4_file_io</code>, <code>.edf</code> → <code>edf_file_io</code>), then sanitizes and
+  returns an <code>EMGFile</code>.</li>
 </ul>
 <h4 id="attributes">Attributes</h4>
 <pre><code class="language-python">emg.data               # np.ndarray, shape (nSamples × nChannels), float32
@@ -185,9 +188,54 @@ emg.description        # list or array of channel‐description strings
 emg.sampling_frequency # float
 emg.file_name          # str
 emg.file_size          # int (bytes)
-emg.file_type          # &quot;mat&quot; | &quot;otb&quot; | &quot;otb4&quot;
+emg.file_type          # &quot;mat&quot; | &quot;otb&quot; | &quot;otb4&quot; | &quot;edf&quot;
 emg.channel_count      # int, number of channels (= data.shape[1])
+emg.unit               # &quot;V&quot; | &quot;mV&quot; | &quot;uV&quot; | &quot;a.u.&quot; | None – unit of the EMG channels
 </code></pre>
+<h4 id="signal-unit">Signal Unit</h4>
+<p><code>emg.unit</code> says what the <strong>EMG grid channels</strong> are measured in, taken from what
+the file declares — never guessed from the magnitude of the data. It is <code>None</code>
+when the format declares nothing, which is deliberate: an unknown unit is
+recoverable, a wrong default is not.</p>
+<p>Reference and auxiliary channels (force, requested/performed path, AUX) are
+<strong>not</strong> in this unit — they carry their own scales.</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Source of the unit</th>
+<th>Typical result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.otb4</code></td>
+<td><code>&lt;UnitOfMeasurement&gt;</code> of each EMG grid track</td>
+<td><code>"mV"</code></td>
+</tr>
+<tr>
+<td><code>.otb+</code> / <code>.otb</code></td>
+<td>Fixed by the loader's scaling (ADC counts → volts × 1000)</td>
+<td><code>"mV"</code></td>
+</tr>
+<tr>
+<td><code>.mat</code></td>
+<td>Optional <code>Unit</code> variable, written by <code>EMGFile.save</code></td>
+<td><code>None</code> for plain MATLAB exports</td>
+</tr>
+<tr>
+<td><code>.edf</code></td>
+<td>Physical dimension in the EDF header</td>
+<td><code>"uV"</code>, or <code>None</code> when blank</td>
+</tr>
+</tbody>
+</table>
+<p>When the EMG tracks/signals of one file disagree on a unit, <code>unit</code> is <code>None</code>
+and a warning is logged.</p>
+<pre><code class="language-python">emg.scale_to(&quot;uV&quot;)     # factor, e.g. 1000.0; raises ValueError when unit is None
+uv = emg.to_unit(&quot;uV&quot;) # a converted copy – EMG channels only, refs untouched
+</code></pre>
+<p><code>to_unit</code> never modifies the original. <code>"a.u."</code> is never convertible.</p>
 <h4 id="grid-metadata">Grid Metadata</h4>
 <pre><code class="language-python">from hdsemg_shared.fileio.file_io import Grid
 
@@ -233,14 +281,19 @@ class Grid:
 <ul>
 <li>
 <p><strong><code>MatFileIO.load(file_path: str) -&gt; tuple</code></strong>
-  Loads a <code>.mat</code> and returns exactly
-  <code>(data, time, description, sampling_frequency, file_name, file_size)</code>.</p>
+  Loads a <code>.mat</code> and returns
+  <code>(data, time, description, sampling_frequency, file_name, file_size, unit)</code>.</p>
 </li>
 <li>
-<p><strong><code>MatFileIO.save(save_path: str, data, time, description, sampling_frequency)</code></strong>
-  Saves the provided arrays/metadata to a <code>.mat</code> file.</p>
+<p><strong><code>MatFileIO.save(save_path: str, data, time, description, sampling_frequency, unit=None)</code></strong>
+  Saves the provided arrays/metadata to a <code>.mat</code> file. <code>unit</code> is written only
+  when it is not <code>None</code>, so a round-trip preserves it without inventing one.</p>
 </li>
 </ul>
+<p>!!! note "Loader return tuple"
+    All four loaders now return the declared unit as a seventh element.
+    <code>EMGFile.load</code> also accepts the older six-element form, in which case
+    <code>emg.unit</code> is <code>None</code>.</p>
 <hr />
 <h2 id="novecento-support">Novecento+ Support</h2>
 <p>The library fully supports <strong>Novecento+</strong> (OTBiolab) files in <code>.otb4</code> format. These files have unique characteristics:</p>
@@ -318,7 +371,14 @@ for idx in main_grid.ref_indices:
 <li>Grid metadata extraction from XML</li>
 </ul>
 </li>
+<li>EDF / EDF+C (<code>.edf</code>) → <code>edf_file_io.load_edf_file</code><ul>
+<li>BIDS <code>*_channels.tsv</code> / <code>*_emg.json</code> sidecars for grid geometry</li>
+</ul>
+</li>
 <li><strong>Sanitization</strong>: ensures <code>data</code> is 2-D (samples × channels) and <code>time</code> is 1-D, swapping axes if needed.</li>
+<li><strong>Unit</strong>: each loader reports what the file declares; <code>EMGFile</code> normalizes it
+  via <code>hdsemg_shared.fileio.units.normalize_unit</code> and never infers one from the
+  data.</li>
 <li><strong>Grid JSON cache</strong>: fetched from Google Drive once per week, stored in <code>~/.hdsemg_cache/</code>.</li>
 </ul>
 <hr />
@@ -334,7 +394,11 @@ for grid in emg.grids:
 # Find a specific grid
 g2x8 = emg.get_grid(grid_key=&quot;2x8&quot;)
 
-# Save a selection back to .mat
+# Work in a known unit before comparing against a physiological threshold
+if emg.unit is not None:
+    emg_uv = emg.to_unit(&quot;uV&quot;)
+
+# Save a selection back to .mat (the unit travels with it, when known)
 emg.save(&quot;selected_subset.mat&quot;)
 </code></pre>
 <hr />
@@ -385,7 +449,8 @@ EMGFile        </code>
     <span class="p">)</span>
     <span class="n">_grid_cache</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">file_size</span><span class="p">,</span> <span class="n">file_type</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">file_size</span><span class="p">,</span> <span class="n">file_type</span><span class="p">,</span>
+                 <span class="n">unit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">time</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
@@ -393,6 +458,10 @@ EMGFile        </code>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_name</span> <span class="o">=</span> <span class="n">file_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_size</span> <span class="o">=</span> <span class="n">file_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_type</span> <span class="o">=</span> <span class="n">file_type</span>
+        <span class="c1">#: Unit of the EMG channels, one of :data:`~hdsemg_shared.fileio.units.CANONICAL_UNITS`,</span>
+        <span class="c1">#: or ``None`` when the file does not declare one. Reference/auxiliary</span>
+        <span class="c1">#: channels (force, paths, AUX) are NOT in this unit — see :meth:`to_unit`.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unit</span> <span class="o">=</span> <span class="n">normalize_unit</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">channel_count</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">1</span>
 
         <span class="c1"># parse out grids *once* on demand</span>
@@ -417,13 +486,16 @@ EMGFile        </code>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported file type: </span><span class="si">{</span><span class="n">suffix</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 
-        <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span> <span class="o">=</span> <span class="n">raw</span>
+        <span class="c1"># Loaders append the declared unit; tolerate the older 6-tuple so a</span>
+        <span class="c1"># third-party loader or a monkeypatched one keeps working.</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="o">*</span><span class="n">extra</span> <span class="o">=</span> <span class="n">raw</span>
+        <span class="n">unit</span> <span class="o">=</span> <span class="n">extra</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">extra</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
         <span class="n">data</span><span class="p">,</span> <span class="n">time</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_sanitize</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">file_type</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">file_type</span><span class="p">,</span> <span class="n">unit</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_sanitize</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
@@ -600,7 +672,8 @@ EMGFile        </code>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">save_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">save_path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".mat"</span><span class="p">):</span>
-            <span class="n">MatFileIO</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_frequency</span><span class="p">)</span>
+            <span class="n">MatFileIO</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+                           <span class="bp">self</span><span class="o">.</span><span class="n">sampling_frequency</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">file_format</span> <span class="o">=</span> <span class="n">save_path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported save format: </span><span class="si">{</span><span class="n">file_format</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
@@ -730,6 +803,45 @@ EMGFile        </code>
 <span class="sd">            Lower-case extensions including the leading dot.</span>
 <span class="sd">        """</span>
         <span class="k">return</span> <span class="p">[</span><span class="s2">".mat"</span><span class="p">,</span> <span class="s2">".otb"</span><span class="p">,</span> <span class="s2">".otb+"</span><span class="p">,</span> <span class="s2">".otb4"</span><span class="p">,</span> <span class="s2">".edf"</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">scale_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Factor that converts this file's EMG channels into ``unit``.</span>
+
+<span class="sd">        Raises ``ValueError`` when :attr:`unit` is ``None`` (the file declared</span>
+<span class="sd">        nothing) or when either unit is not convertible, e.g. ``"a.u."``.</span>
+
+<span class="sd">        Example::</span>
+
+<span class="sd">            emg.data[:, grid.emg_indices] * emg.scale_to("uV")</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">conversion_factor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">unit</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_unit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EMGFile"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Return a copy whose EMG channels are expressed in ``unit``.</span>
+
+<span class="sd">        Only the grid EMG channels are scaled. Reference and auxiliary channels</span>
+<span class="sd">        (force, requested/performed path, AUX) carry their own units and are</span>
+<span class="sd">        left untouched. When no grids could be parsed, every channel is scaled,</span>
+<span class="sd">        since there is nothing to distinguish EMG from the rest.</span>
+<span class="sd">        """</span>
+        <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>          <span class="c1"># always a fresh array</span>
+        <span class="n">emg_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">i</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">grids</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">emg_indices</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">emg_indices</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[:,</span> <span class="n">emg_indices</span><span class="p">]</span> <span class="o">*=</span> <span class="n">factor</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"No grids parsed for </span><span class="si">%s</span><span class="s2">; scaling every channel to </span><span class="si">%s</span><span class="s2">."</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">file_name</span><span class="p">,</span> <span class="n">unit</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">data</span> <span class="o">*=</span> <span class="n">factor</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">unit</span> <span class="o">=</span> <span class="n">unit</span>
+        <span class="k">return</span> <span class="n">out</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -890,19 +1002,63 @@ If both are None, returns None.</p>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported file type: </span><span class="si">{</span><span class="n">suffix</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 
-    <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span> <span class="o">=</span> <span class="n">raw</span>
+    <span class="c1"># Loaders append the declared unit; tolerate the older 6-tuple so a</span>
+    <span class="c1"># third-party loader or a monkeypatched one keeps working.</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="o">*</span><span class="n">extra</span> <span class="o">=</span> <span class="n">raw</span>
+    <span class="n">unit</span> <span class="o">=</span> <span class="n">extra</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">extra</span> <span class="k">else</span> <span class="kc">None</span>
 
     <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">:</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
     <span class="n">data</span><span class="p">,</span> <span class="n">time</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_sanitize</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
-    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">file_type</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">sf</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">file_type</span><span class="p">,</span> <span class="n">unit</span><span class="p">)</span>
 </code></pre></div>
         </details>
     </div>
 
   </div>
 
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h4 id="hdsemg_shared.fileio.file_io.EMGFile.scale_to" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">scale_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">)</span></code>
+
+
+</h4>
+
+    <div class="doc doc-contents ">
+
+      <p>Factor that converts this file's EMG channels into <code>unit</code>.</p>
+<p>Raises <code>ValueError</code> when :attr:<code>unit</code> is <code>None</code> (the file declared
+nothing) or when either unit is not convertible, e.g. <code>"a.u."</code>.</p>
+<p>Example::</p>
+<pre><code>emg.data[:, grid.emg_indices] * emg.scale_to("uV")
+</code></pre>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/fileio/file_io.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">scale_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Factor that converts this file's EMG channels into ``unit``.</span>
+
+<span class="sd">    Raises ``ValueError`` when :attr:`unit` is ``None`` (the file declared</span>
+<span class="sd">    nothing) or when either unit is not convertible, e.g. ``"a.u."``.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        emg.data[:, grid.emg_indices] * emg.scale_to("uV")</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">conversion_factor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">unit</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
 
 
 
@@ -1007,6 +1163,59 @@ path = filedialog.askopenfilename(
         <span class="p">(</span><span class="s2">"EDF Files"</span><span class="p">,</span> <span class="s2">"*.edf"</span><span class="p">),</span>
         <span class="p">(</span><span class="s2">"All Files"</span><span class="p">,</span> <span class="s2">"*.*"</span><span class="p">),</span>
     <span class="p">]</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h4 id="hdsemg_shared.fileio.file_io.EMGFile.to_unit" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">to_unit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">)</span></code>
+
+
+</h4>
+
+    <div class="doc doc-contents ">
+
+      <p>Return a copy whose EMG channels are expressed in <code>unit</code>.</p>
+<p>Only the grid EMG channels are scaled. Reference and auxiliary channels
+(force, requested/performed path, AUX) carry their own units and are
+left untouched. When no grids could be parsed, every channel is scaled,
+since there is nothing to distinguish EMG from the rest.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>hdsemg_shared/fileio/file_io.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_unit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EMGFile"</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Return a copy whose EMG channels are expressed in ``unit``.</span>
+
+<span class="sd">    Only the grid EMG channels are scaled. Reference and auxiliary channels</span>
+<span class="sd">    (force, requested/performed path, AUX) carry their own units and are</span>
+<span class="sd">    left untouched. When no grids could be parsed, every channel is scaled,</span>
+<span class="sd">    since there is nothing to distinguish EMG from the rest.</span>
+<span class="sd">    """</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>          <span class="c1"># always a fresh array</span>
+    <span class="n">emg_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">i</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">grids</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">emg_indices</span><span class="p">})</span>
+    <span class="k">if</span> <span class="n">emg_indices</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[:,</span> <span class="n">emg_indices</span><span class="p">]</span> <span class="o">*=</span> <span class="n">factor</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">"No grids parsed for </span><span class="si">%s</span><span class="s2">; scaling every channel to </span><span class="si">%s</span><span class="s2">."</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">file_name</span><span class="p">,</span> <span class="n">unit</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">data</span> <span class="o">*=</span> <span class="n">factor</span>
+
+    <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">unit</span> <span class="o">=</span> <span class="n">unit</span>
+    <span class="k">return</span> <span class="n">out</span>
 </code></pre></div>
         </details>
     </div>

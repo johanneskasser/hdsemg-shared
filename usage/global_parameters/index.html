@@ -283,7 +283,9 @@ def compute_entropy(signal: np.ndarray) -&gt; float:
 <h3 id="7-global-amplitude">7. Global Amplitude</h3>
 <p><strong>Description:</strong></p>
 <ul>
-<li>Reduces a whole HDsEMG grid to one amplitude over time, <code>[xV]</code>.</li>
+<li>Reduces a whole HDsEMG grid to one amplitude over time, <code>[xV]</code> — the same
+  volt prefix as the input. <code>EMGFile.unit</code> names it; convert with
+  <code>emg.to_unit("uV")</code> before reporting an absolute number.</li>
 <li>Takes the raw channel matrix plus an <code>emg_map</code>; band-pass filtering,
   MP/SD/DD differentiation and the reduction all happen inside.</li>
 <li><code>method='RMS'</code> (default) or <code>'ARV'</code>.</li>
@@ -323,6 +325,7 @@ from hdsemg_shared.global_parameters import global_amplitude
 from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices
 
 emg_file = EMGFile.load(&quot;recording.otb+&quot;)
+emg_file = emg_file.to_unit(&quot;uV&quot;)      # emg_file.unit is &quot;mV&quot; for OTB+/OTB4
 grid = emg_file.grids[0]
 emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
 
@@ -330,8 +333,8 @@ emg_map = emg_map_from_indices(grid.emg_indices, grid.rows, grid.cols)
 out = global_amplitude(emg_file.data.T, emg_map, emg_file.sampling_frequency,
                        method='RMS', derivation='SD')
 
-out.amplitude      # global amplitude over time      [xV]
-out.per_channel    # each channel's own envelope     [xV]
+out.amplitude      # global amplitude over time      [uV, matching the input]
+out.per_channel    # each channel's own envelope     [uV, matching the input]
 out.positions      # (column, row) of each channel
 out.grid_shape     # (nCols, nRows) after derivation
 out.n_channels     # how many contributed
@@ -534,6 +537,16 @@ from hdsemg_shared.global_parameters import global_amplitude
 from hdsemg_shared.preprocessing.grid_map import emg_map_from_indices
 
 emg_file = EMGFile.load(cropped_file_path)
+
+# The *_uv keys below claim microvolts, so earn the claim rather than assuming
+# it: OTB+/OTB4 hand back millivolts, and a plain .mat declares nothing at all.
+if emg_file.unit is None:
+    raise ValueError(
+        f&quot;{cropped_file_path} declares no signal unit; refusing to write &quot;
+        f&quot;microvolt fields from data of unknown scale.&quot;
+    )
+emg_file = emg_file.to_unit(&quot;uV&quot;)
+
 emg_channels = emg_file.data.T          # (n_samples, n_channels) -&gt; channels first
 
 results = {}

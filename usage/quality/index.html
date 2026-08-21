@@ -152,6 +152,16 @@ other.</p>
 samples-by-channels, so pass <code>emg.data.T</code> — and return one entry per row. A
 channel that is entirely NaN, an excluded or unwired position, yields NaN
 rather than raising.</p>
+<p>Amplitudes come back in whatever unit went in — that is what <code>[xV]</code> means in
+the docstrings. <code>EMGFile.unit</code> says which one that is, so convert <strong>before</strong>
+comparing against a threshold in µV:</p>
+<pre><code class="language-python">emg = EMGFile.load(&quot;recording.otb4&quot;)
+emg.unit                       # &quot;mV&quot; for OTB4, None when the file says nothing
+amp = channel_amplitude(emg.to_unit(&quot;uV&quot;).data.T, fs)   # now genuinely µV
+</code></pre>
+<p><code>unit</code> is <code>None</code> for a file that declares nothing, and <code>to_unit</code> raises rather
+than guessing. Ratios and <code>robust_z</code> scores are unit-free and unaffected;
+every absolute number is not.</p>
 <table>
 <thead>
 <tr>
