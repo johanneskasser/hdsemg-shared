@@ -181,7 +181,10 @@ def channel_amplitude(mat, fs, bpf = None, window = None, pad_s = DEFAULT_PAD_S)
                   which reduces across the channels and roots LAST
     """
     x = _as_channels(mat)
-    filtered = _bandpass(x, _merged_bpf(bpf), fs, pad_s)
+    # bpf=False means the caller has ALREADY filtered. Without it a caller
+    # that wants every channel measure on one prepared array has to choose
+    # between filtering three times and not filtering at all
+    filtered = x if bpf is False else _bandpass(x, _merged_bpf(bpf), fs, pad_s)
     windowed = _apply_window(filtered, window)
 
     with warnings.catch_warnings():
@@ -427,7 +430,8 @@ def neighbor_correlation(mat, emg_map, fs, bpf = None, window = None,
     grid = _as_map(emg_map)
     _check_indices(grid, x.shape[0])
 
-    filtered = _apply_window(_bandpass(x, _merged_bpf(bpf), fs, pad_s), window)
+    prepared = x if bpf is False else _bandpass(x, _merged_bpf(bpf), fs, pad_s)
+    filtered = _apply_window(prepared, window)
 
     n_cols, n_rows = grid.shape
     best = np.full(x.shape[0], np.nan)
