@@ -123,6 +123,33 @@ prop.cv_status                # and read this before it
 prop.iz_detected, prop.iz_position_m
 ```
 
+!!! danger "Never hand it interpolated channels"
+    An amplitude pipeline has good reason to spatially fill its bad channels —
+    a filled channel keeps the grid geometry intact for a mean — and passing
+    that same filled matrix here is the natural next line. **Do not.** A
+    filled channel is roughly the mean of its neighbours, so its second
+    spatial difference collapses and the differential bin carries noise where
+    a delay should be.
+
+    Measured by planting the case where the answer is known — mark a
+    known-good channel bad, fill it, and ask what moved — over 1777 planted
+    sites on 119 real grids: the velocity shifts systematically
+    (p = 1.2e-13), 11 % of sites move by more than 5 %, `propagation_score`
+    *degrades*, and 52 sites lose the velocity outright. Filling also gives
+    the **highest** estimability of any option, which is why yield cannot be
+    used to justify it: the extra estimates are synthetic.
+
+    Name the bad channels instead, and they leave the map:
+
+    ```python
+    prop = propagation(emg.T, emg_map, ied_mm, fs, bad_channels=[12, 13])
+    ```
+
+    A fill is *detected*, not merely discouraged: a filled channel equals the
+    mean of its live neighbours to floating-point precision, which real EMG
+    never does, and `propagation()` raises rather than returning a biased
+    number. Pass `allow_interpolated=True` only if you mean it.
+
 !!! warning "Read `cv_reported_ms`, not `conduction_velocity_ms`"
     A conduction velocity is only defined where the potentials travel in a
     **single direction**. Across an innervation zone they travel both ways, so

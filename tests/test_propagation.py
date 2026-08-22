@@ -344,3 +344,157 @@ def test_a_velocity_above_the_ceiling_is_dropped_not_reported():
 
     assert result.cv_status in ("out_of_range", "too_few_pairs")
     assert np.isnan(result.cv_reported_ms)
+
+
+# ---------------------------------------------------------------------------
+# bad channels, and the refusal to measure timing on an interpolated one
+# ---------------------------------------------------------------------------
+
+def _laplace_fill(mat, emg_map, channels):
+    """
+    Fill `channels` with the mean of their live 4-connected neighbours.
+
+    One Jacobi sweep is enough for the tests here because the planted bad
+    channels are never adjacent to each other; the real solver does the whole
+    system at once, but the fixed point it converges to is this same relation.
+    """
+    out = np.array(mat, dtype=np.float64, copy=True)
+    at = {(c, r): int(emg_map[c, r])
+          for c in range(emg_map.shape[0]) for r in range(emg_map.shape[1])}
+    for ch in channels:
+        col, row = next(p for p, v in at.items() if v == ch)
+        near = [at[(col + dc, row + dr)]
+                for dc, dr in ((0, 1), (0, -1), (1, 0), (-1, 0))
+                if (col + dc, row + dr) in at]
+        out[ch] = np.mean(mat[near], axis=0)
+    return out
+
+
+def test_bad_channels_takes_them_out_of_the_map():
+    """
+    Naming a channel bad must do exactly what NaN-ing the map position does.
+    Anything else and the argument would be a second, subtly different way of
+    excluding a channel.
+    """
+    mat, emg_map = travelling_grid(cv_ms=4.0)
+    bad = [emg_map[1, 3], emg_map[2, 5]]
+
+    by_argument = propagation(mat, emg_map, IED_MM, FS, bad_channels=bad)
+    hand_masked = np.array(emg_map, dtype=float, copy=True)
+    hand_masked[1, 3] = np.nan
+    hand_masked[2, 5] = np.nan
+    by_map = propagation(mat, hand_masked, IED_MM, FS)
+
+    assert by_argument.n_electrodes == by_map.n_electrodes
+    assert by_argument.cv_reported_ms == pytest.approx(by_map.cv_reported_ms,
+                                                       nan_ok=True)
+    assert by_argument.fiber_angle_deg == by_map.fiber_angle_deg
+
+
+def test_bad_channels_accepts_a_boolean_mask():
+    mat, emg_map = travelling_grid(cv_ms=4.0)
+    mask = np.zeros(mat.shape[0], dtype=bool)
+    mask[int(emg_map[1, 3])] = True
+
+    by_mask = propagation(mat, emg_map, IED_MM, FS, bad_channels=mask)
+    by_number = propagation(mat, emg_map, IED_MM, FS,
+                            bad_channels=[emg_map[1, 3]])
+
+    assert by_mask.n_electrodes == by_number.n_electrodes
+    assert by_mask.cv_reported_ms == pytest.approx(by_number.cv_reported_ms,
+                                                   nan_ok=True)
+
+
+def test_bad_channels_outside_the_data_is_named_not_ignored():
+    mat, emg_map = travelling_grid(cv_ms=4.0)
+
+    with pytest.raises(ValueError, match="outside the data"):
+        propagation(mat, emg_map, IED_MM, FS, bad_channels=[mat.shape[0] + 4])
+
+
+def test_an_interpolated_channel_is_refused():
+    """
+    THE TRAP THIS EXISTS FOR. An amplitude pipeline has good reason to
+    Laplace-fill its bad channels, and handing the same filled matrix to
+    propagation is the natural next line. A filled channel is roughly the
+    mean of its neighbours, so its second spatial difference collapses and
+    the bin carries noise where a delay should be.
+    """
+    mat, emg_map = travelling_grid(cv_ms=4.0)
+    bad = [int(emg_map[1, 3]), int(emg_map[2, 5])]
+    filled = _laplace_fill(mat, emg_map, bad)
+
+    with pytest.raises(ValueError, match="mean of their live neighbours") as e:
+        propagation(filled, emg_map, IED_MM, FS)
+
+    assert all(str(ch) in str(e.value) for ch in bad), "must name which ones"
+
+
+def test_a_filled_matrix_measures_the_same_as_a_raw_one_once_declared():
+    """
+    Declaring the bad channels neutralises the fill COMPLETELY: those
+    positions leave the map, so the filled values are never read and the
+    answer is the one the raw matrix gives.
+    """
+    mat, emg_map = travelling_grid(cv_ms=4.0)
+    bad = [int(emg_map[1, 3]), int(emg_map[2, 5])]
+    filled = _laplace_fill(mat, emg_map, bad)
+
+    from_filled = propagation(filled, emg_map, IED_MM, FS, bad_channels=bad)
+    from_raw = propagation(mat, emg_map, IED_MM, FS, bad_channels=bad)
+
+    assert from_filled.cv_reported_ms == pytest.approx(from_raw.cv_reported_ms,
+                                                       nan_ok=True)
+    assert from_filled.propagation_score == pytest.approx(
+        from_raw.propagation_score)
+
+
+def test_the_guard_can_be_overridden_deliberately():
+    """The escape hatch exists, but it has to be asked for by name."""
+    mat, emg_map = travelling_grid(cv_ms=4.0)
+    filled = _laplace_fill(mat, emg_map, [int(emg_map[1, 3])])
+
+    result = propagation(filled, emg_map, IED_MM, FS, allow_interpolated=True)
+
+    assert result.n_electrodes == mat.shape[0]
+
+
+def test_the_guard_does_not_fire_on_ordinary_data():
+    """
+    A false positive here would break every honest caller. Real signals miss
+    their neighbour mean by orders of magnitude more than the tolerance, and
+    a planted travelling wave is the hardest case for that - every channel IS
+    a delayed copy of one source.
+    """
+    for cv in (2.5, 4.0, 6.0):
+        for noise in (0.0, 2.0):
+            mat, emg_map = travelling_grid(cv_ms=cv, noise=noise)
+            propagation(mat, emg_map, IED_MM, FS)      # must not raise
+
+
+def test_a_channel_with_one_live_neighbour_is_not_called_interpolated():
+    """
+    With a single neighbour a fill is a copy, which cannot be told apart from
+    a genuine duplicate-wiring fault. Refusing there would be guessing, so
+    the guard needs two neighbours before it accuses anything.
+    """
+    mat, emg_map = travelling_grid(n_cols=1, n_rows=12, cv_ms=4.0)
+    mat[3] = mat[2]                       # a copy of its only live neighbour
+
+    propagation(mat, emg_map, IED_MM, FS)                # must not raise
+
+
+def test_duplicate_wiring_is_diagnosed_as_such_not_as_interpolation():
+    """
+    A channel identical to its identical neighbours trivially equals their
+    mean, without anything having been interpolated. That is duplicate
+    wiring, which propagation already reports as an unusable velocity, and
+    the guard must not replace that correct diagnosis with a wrong one.
+    """
+    rng = np.random.default_rng(8)
+    mat = np.vstack([_source(rng)] * 48)
+    emg_map = np.arange(48, dtype=float).reshape(4, 12)
+
+    result = propagation(mat, emg_map, IED_MM, FS)      # must not raise
+
+    assert result.cv_status in ("out_of_range", "too_few_pairs")

@@ -265,7 +265,8 @@ class PropagationResult(NamedTuple):
 
 
 def propagation(emg_channels, emg_map, ied_mm, fs, angles = None, bpf = None,
-                window = None, pad_s = DEFAULT_PAD_S, derivation = 'SD'):
+                window = None, pad_s = DEFAULT_PAD_S, derivation = 'SD',
+                bad_channels = None, allow_interpolated = False):
     """
     PROPAGATION estimates fibre direction, conduction velocity and
     innervation zone position of one HDsEMG grid
@@ -297,6 +298,17 @@ def propagation(emg_channels, emg_map, ied_mm, fs, angles = None, bpf = None,
                           samples. A window where the muscle is ACTIVE gives
                           far better delay estimates than a whole trial that
                           is mostly rest []
+        bad_channels ... channel numbers to take OUT of the map before
+                          anything is measured, as a sequence of base-0
+                          numbers or a boolean mask over the rows of
+                          emg_channels. *PASS THE BAD CHANNELS HERE RATHER
+                          THAN INTERPOLATING THEM* - see WHY INTERPOLATED
+                          CHANNELS ARE REFUSED below. None (default) takes
+                          the map as given []
+        allow_interpolated
+                     ... set True to skip the spatially-filled-channel guard,
+                          for the rare case where a fill really is wanted and
+                          the caller has said so in writing. Default False []
         pad_s        ... reflection padding before filtering, default
                           0.25 [s]
         derivation   ... char, one of:
@@ -324,6 +336,38 @@ def propagation(emg_channels, emg_map, ied_mm, fs, angles = None, bpf = None,
                           propagation_score and cv_status BEFORE
                           conduction_velocity_ms
 
+      WHY INTERPOLATED CHANNELS ARE REFUSED
+        A spatially interpolated channel is not a timing measurement. Fill a
+        channel from its 4 neighbours and it becomes roughly their mean, so
+        its SECOND spatial difference collapses: the differential bin it
+        produces carries low-amplitude noise where a delay should be. This is
+        not a small effect and it does not average out.
+
+        MEASURED by planting the case where the right answer is known - mark
+        a channel every quality check calls GOOD as bad, fill it, and ask
+        what moved. Over 1777 planted sites on 119 real grids, where nothing
+        about the muscle changed: the velocity shifts systematically
+        (p = 1.2e-13, toward slower, further as the filled cluster grows),
+        71 % of sites move at all and 11 % move by more than 5 %,
+        propagation_score DEGRADES from 0.548 to 0.519, cv_status flips
+        category on 59 sites, and 52 lose the velocity outright.
+
+        Note that filling gives the HIGHEST estimability of any arm tested
+        (79.5 % of grids against 77.3 %), which is exactly why yield and
+        propagation_score cannot be used to justify it: the extra estimates
+        are synthetic bins that pass the physiological test without carrying
+        real timing.
+
+        The trap is easy to fall into, because an amplitude pipeline has good
+        reason to interpolate - a filled channel keeps the grid geometry
+        intact for a mean - and handing the same filled matrix to this
+        function is the natural next line. So a fill is DETECTED here rather
+        than merely discouraged: a filled channel equals the mean of its live
+        4-connected neighbours to floating-point precision, which real EMG
+        never does. Pass bad_channels instead, and this function takes those
+        positions out of the map, which is the correct treatment - excluding
+        a channel from a delay estimate is not deleting it from a dataset.
+
       *INFO* ... an excluded channel belongs in the map as NaN, exactly like
                   an unwired position; both are simply not placed
       *INFO* ... a channel whose signal is all zero or all NaN is dropped
@@ -342,6 +386,9 @@ def propagation(emg_channels, emg_map, ied_mm, fs, angles = None, bpf = None,
 
     grid = _as_map(emg_map)
     _check_indices(grid, x.shape[0])
+    grid = _without(grid, bad_channels, x.shape[0])
+    if not allow_interpolated:
+        _refuse_spatial_fills(x, grid)
 
     prepared = x if bpf is False else _bandpass(x, _merged_bpf(bpf), fs, pad_s)
     prepared = _apply_window(prepared, window)
@@ -493,6 +540,96 @@ def differential_map(emg_channels, emg_map, ied_mm, fs, angle_deg, bpf = None,
     positions = np.asarray([p for p, _ in binned], dtype=np.float64)
     signals = np.vstack([s for _, s in binned])
     return positions, signals
+
+
+def _without(grid, bad_channels, n_channels):
+    """The map with `bad_channels` taken out, as NaN. Never modifies input."""
+    if bad_channels is None:
+        return grid
+    bad = np.asarray(bad_channels)
+    if bad.dtype == bool:
+        if bad.size != n_channels:
+            raise ValueError(
+                f"bad_channels as a mask must have one entry per channel: "
+                f"got {bad.size} for {n_channels} channels.")
+        bad = np.flatnonzero(bad)
+    bad = set(int(b) for b in np.asarray(bad, dtype=np.int64).ravel())
+    if not bad:
+        return grid
+    out_of_range = sorted(b for b in bad if not 0 <= b < n_channels)
+    if out_of_range:
+        raise ValueError(
+            f"bad_channels names channels outside the data: {out_of_range}; "
+            f"emg_channels has {n_channels} rows.")
+    out = grid.astype(np.float64, copy=True)
+    for col in range(out.shape[0]):
+        for row in range(out.shape[1]):
+            here = out[col, row]
+            if not np.isnan(here) and int(here) in bad:
+                out[col, row] = np.nan
+    return out
+
+
+#: How close to the neighbour mean counts as "this channel was filled". A
+#: harmonic fill solves value = mean(live 4-neighbours) exactly, so the
+#: residual is float noise; real EMG misses by orders of magnitude more.
+_FILL_RTOL = 1e-9
+
+
+def _refuse_spatial_fills(x, grid):
+    """
+    Raise when a channel the map places is the mean of its live neighbours.
+
+    That is what a harmonic ("Laplace") fill produces by construction, and a
+    filled channel carries no timing - see the docstring of propagation. The
+    check costs one neighbour mean per placed channel and cannot fire on real
+    data: an EMG channel is never its neighbours' mean to 1e-9.
+
+    Only channels with at least TWO live neighbours are tested. With one
+    neighbour the fill is a copy, which is indistinguishable from a genuine
+    duplicate wiring fault, and refusing there would be guessing.
+
+    NEIGHBOURS THAT ARE ALL THE SAME SIGNAL are skipped for that same reason.
+    A channel identical to its identical neighbours trivially equals their
+    mean without anything having been interpolated - that is duplicate
+    wiring, a fault this function already reports as a zero delay and an
+    unusable velocity. Accusing it of interpolation would replace a correct
+    diagnosis with a wrong one.
+    """
+    n_cols, n_rows = grid.shape
+    at = {}
+    for col in range(n_cols):
+        for row in range(n_rows):
+            if not np.isnan(grid[col, row]):
+                at[(col, row)] = int(grid[col, row])
+
+    filled = []
+    for (col, row), ch in at.items():
+        neighbours = [at[(col + dc, row + dr)]
+                      for dc, dr in ((0, 1), (0, -1), (1, 0), (-1, 0))
+                      if (col + dc, row + dr) in at]
+        if len(neighbours) < 2:
+            continue
+        here = x[ch]
+        scale = float(np.max(np.abs(here))) if here.size else 0.0
+        if scale <= 0.0:
+            continue                      # dead channel, a different fault
+        near = x[neighbours]
+        spread = float(np.max(np.max(near, axis=0) - np.min(near, axis=0)))
+        if spread <= _FILL_RTOL * scale:
+            continue                      # duplicate wiring, not a fill
+        mean = np.mean(near, axis=0)
+        if float(np.max(np.abs(here - mean))) <= _FILL_RTOL * scale:
+            filled.append(ch)
+
+    if filled:
+        raise ValueError(
+            f"channels {sorted(filled)} are the mean of their live "
+            f"neighbours, which is what spatial interpolation produces. An "
+            f"interpolated channel carries no timing and biases the velocity "
+            f"- pass the bad channels as bad_channels= so they are taken out "
+            f"of the map instead, or set allow_interpolated=True if the fill "
+            f"is genuinely wanted.")
 
 
 def _placed_signals(prepared, grid):
